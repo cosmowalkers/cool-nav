@@ -178,7 +178,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <div
       class="relative z-10 mx-auto grid w-full max-w-[1400px] gap-3 px-4 pt-3 pb-20 lg:grid-cols-[160px_minmax(0,1fr)] xl:grid-cols-[160px_minmax(0,1fr)_270px]"
     >
-      <GroupNav v-if="nav.groups.length" class="hidden self-start lg:block" />
+      <!-- 这里只管显隐：传 lg:block 会把组件自己的 flex 覆盖掉（同为单类名，后写的胜），
+           于是 flex-col 失效、分组按钮缩成文字宽，点击热区只剩几个字 -->
+      <GroupNav v-if="nav.groups.length" class="hidden self-start lg:flex" />
 
       <main class="min-w-0">
         <LinkSections

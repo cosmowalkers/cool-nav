@@ -60,7 +60,7 @@ onUnmounted(() => {
     <button
       v-for="group in nav.groups"
       :key="group.id"
-      class="side-item flex cursor-pointer items-center rounded-md px-2.5 py-2.5 text-left text-[16px] leading-4 transition-colors"
+      class="side-item flex w-full cursor-pointer items-center rounded-md px-2.5 py-2.5 text-left text-[16px] leading-4 transition-colors"
       :class="active === group.id ? '' : 'text-dim hover:bg-hover hover:text-ink'"
       :data-active="active === group.id"
       @click="scrollTo(group.id)"
