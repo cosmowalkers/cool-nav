@@ -9,22 +9,16 @@ export interface Engine {
 export const ENGINES: Engine[] = [
   { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q=%s' },
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=%s' },
-  { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd=%s' },
-  { id: 'juejin', name: '掘金', url: 'https://juejin.cn/search?query=%s' },
   { id: 'github', name: 'GitHub', url: 'https://github.com/search?q=%s' },
-  { id: 'npm', name: 'npm', url: 'https://www.npmjs.com/search?q=%s' },
 ]
 
 /** 前缀 → 引擎，例如输入 `gh vue3` 直接用 GitHub 搜 */
 export const PREFIX_ALIASES: Record<string, string> = {
   gg: 'google',
-  bd: 'baidu',
-  bz: 'juejin',
   gh: 'github',
-  npm: 'npm',
 }
 
-export const PREFIX_HINT = 'gg / bd / bz / gh / npm'
+export const PREFIX_HINT = 'gg / gh'
 
 export type ResolvedQuery =
   | { kind: 'url'; url: string }

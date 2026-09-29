@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const emit = defineEmits<{
+  addGroup: []
   exportData: []
   importData: []
 }>()
@@ -11,6 +12,12 @@ const emit = defineEmits<{
   >
     <span class="text-[12px] whitespace-nowrap text-faint">编辑中 · 拖拽调整顺序 · Esc 退出</span>
     <span class="h-3.5 w-px bg-line"></span>
+    <button
+      class="cursor-pointer rounded-lg px-2 py-1 text-[12.5px] text-dim hover:bg-hover hover:text-ink"
+      @click="emit('addGroup')"
+    >
+      新建分组
+    </button>
     <button
       class="cursor-pointer rounded-lg px-2 py-1 text-[12.5px] text-dim hover:bg-hover hover:text-ink"
       @click="emit('exportData')"

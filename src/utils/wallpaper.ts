@@ -11,37 +11,8 @@ export const ROTATE_OPTIONS = [
   { id: 'never', name: '不切换', ms: -1 },
 ]
 
-/** 图片内容不可控，蒙版是唯一能兜住可读性的旋钮 */
-export const SCRIM_OPTIONS = [
-  { id: 'weak', name: '弱' },
-  { id: 'medium', name: '中' },
-  { id: 'strong', name: '强' },
-]
-
-export function scrimCss(id: string): string {
-  if (id === 'weak') return 'linear-gradient(180deg, rgba(8,10,16,0.22), rgba(8,10,16,0.44))'
-  if (id === 'strong') return 'linear-gradient(180deg, rgba(5,7,12,0.58), rgba(5,7,12,0.76))'
-  return 'linear-gradient(180deg, rgba(8,10,16,0.38), rgba(8,10,16,0.62))'
-}
-
-/**
- * 内置风景图集：picsum 上手工挑过的 14 张自然风光（免 key、地址永久、按需裁尺寸）。
- * 只存 id，尺寸在请求时按屏幕物理像素拼，别让笔记本白下 4K。
- */
-const SCENERY_IDS = [1011, 1015, 1016, 1018, 1036, 1039, 1043, 1044, 1050, 1057, 1061, 110, 112, 116]
-
 function screenWidth(): number {
   return Math.round(window.innerWidth * (window.devicePixelRatio || 1))
-}
-
-export function sceneryImages(): WallpaperImage[] {
-  const physical = screenWidth()
-  const width = physical >= 3000 ? 3840 : physical >= 1900 ? 2560 : 1920
-  const height = Math.round((width * 9) / 16)
-  return SCENERY_IDS.map((id) => ({
-    url: `https://picsum.photos/id/${id}/${width}/${height}`,
-    title: '',
-  }))
 }
 
 function bingSizeSuffix(): string {

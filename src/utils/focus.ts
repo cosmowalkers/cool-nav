@@ -1,11 +1,13 @@
-/** 键盘导航：瓦片之间按**视觉位置**找邻居。分组是 flex-wrap 排的，DOM 顺序和位置不一定一致 */
+/** 键盘导航：链接之间按**视觉位置**找邻居。分组是多列排的，DOM 顺序和视觉位置不一定一致 */
 export type Direction = 'left' | 'right' | 'up' | 'down'
 
-const TILE = '[data-tile]'
+/** 一条链接的标记，键盘导航和 App 的事件处理共用这一个选择器 */
+export const LINK_SELECTOR = '[data-link]'
+
 const SEARCH = '[data-search-input]'
 
 function tiles(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>(TILE))
+  return Array.from(document.querySelectorAll<HTMLElement>(LINK_SELECTOR))
 }
 
 export function focusTile(edge: 'first' | 'last' = 'first'): boolean {

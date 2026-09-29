@@ -1,26 +1,22 @@
 import { computed, ref, watch } from 'vue'
 import { nav } from './useNavData'
 import { storage } from '../storage'
-import { isPhotoPreset, presetCss } from '../utils/background'
-import { fileToBackground } from '../utils/image'
-import {
-  ROTATE_OPTIONS,
-  fetchBingImages,
-  preload,
-  sceneryImages,
-  type WallpaperImage,
-} from '../utils/wallpaper'
+import { engineTone, isPhotoPreset } from '../utils/background'
+import { hasOrigin, requestOrigin } from '../utils/permissions'
+import { ROTATE_OPTIONS, fetchBingImages, preload, type WallpaperImage } from '../utils/wallpaper'
 
-const IMAGES_KEY = 'images'
 const BING_KEY = 'bing'
 const STATE_KEY = 'wallpaper'
+/** 每日一图的接口没有 CORS 头，只能靠这一个域名的可选权限，不给就退回纯色 */
+const BING_ORIGIN = 'https://www.bing.com/*'
 
-/** 本机图库：dataURL 数组，存 storage.local，不参与同步 */
-export const localImages = ref<string[]>([])
+/** 每日一图的图池：只缓存「一批图片地址 + 日期」，图片本身不落库 */
 export const bingImages = ref<WallpaperImage[]>([])
-/** 当前该显示的图片地址，空串表示退回渐变/纯色 */
+/** 当前该显示的图片地址，空串表示退回纯色底 */
 export const currentImage = ref('')
 export const wallpaperError = ref('')
+/** 每日一图缺权限：界面据此显示「允许」入口，不给权限就一直用纯色底 */
+export const bingNeedsPermission = ref(false)
 
 let lastUrl = ''
 let switchedAt = 0
@@ -29,13 +25,10 @@ let timer: number | undefined
 const background = computed(() => nav.settings.background)
 const isPhoto = computed(() => isPhotoPreset(background.value.preset))
 
-/** 内置渐变的 css，图片类来源为空 */
-export const gradient = computed(() => (isPhoto.value ? '' : presetCss(background.value.preset)))
-
-/** 有背景就锁深色文字体系；按来源判断而不是按图有没有加载出来，避免首帧闪白 */
-export const hasBackground = computed(() => isPhoto.value || Boolean(gradient.value))
-
 export const photoUrl = computed(() => (isPhoto.value ? currentImage.value : ''))
+
+/** 没图时顶图那条的底色，跟着搜索引擎换 */
+export const heroTone = computed(() => engineTone(nav.settings.engineId))
 
 export const imageCredit = computed(() => {
   if (background.value.preset !== 'bing') return ''
@@ -44,8 +37,6 @@ export const imageCredit = computed(() => {
 
 function pool(): string[] {
   const preset = background.value.preset
-  if (preset === 'local') return localImages.value
-  if (preset === 'scene') return sceneryImages().map((item) => item.url)
   if (preset === 'bing') return bingImages.value.map((item) => item.url)
   if (preset === 'image') return background.value.url ? [background.value.url] : []
   return []
@@ -67,7 +58,7 @@ function pickIndex(list: string[], now: number): number {
   return hit
 }
 
-/** 从 index 起往后找第一张能加载出来的，全挂了就保持现状，别把页面弄成空屏 */
+/** 从 index 起往后找第一张能加载出来的；一张都加载不出来就保持纯色，不留空屏 */
 async function show(index: number, list: string[]): Promise<void> {
   for (let step = 0; step < list.length; step += 1) {
     const candidate = list[(index + step) % list.length]
@@ -80,12 +71,6 @@ async function show(index: number, list: string[]): Promise<void> {
     void preload(list[(index + step + 1) % list.length])
     return
   }
-}
-
-async function showUrl(url: string): Promise<void> {
-  const list = pool()
-  const index = list.indexOf(url)
-  await show(index < 0 ? 0 : index, list)
 }
 
 async function sync(): Promise<void> {
@@ -102,8 +87,16 @@ async function sync(): Promise<void> {
   await show(index, list)
 }
 
-/** Bing 每天只请求一次，失败就继续用缓存的那批 */
+/**
+ * Bing 每天只请求一次，失败就退回纯色底，不空屏。
+ * 权限没给就一次请求都不发——「默认背景」也得先问过用户。
+ */
 async function ensureBing(): Promise<void> {
+  if (!(await hasOrigin(BING_ORIGIN))) {
+    bingNeedsPermission.value = true
+    return
+  }
+  bingNeedsPermission.value = false
   const today = new Date().toISOString().slice(0, 10)
   const cached = await storage.readLocal<{ at: string; list: WallpaperImage[] }>(BING_KEY)
   if (cached && Array.isArray(cached.list) && cached.list.length) {
@@ -116,24 +109,26 @@ async function ensureBing(): Promise<void> {
     wallpaperError.value = ''
     await storage.writeLocal(BING_KEY, { at: today, list })
   } catch (error) {
-    wallpaperError.value = '每日一图暂时取不到，先用手上的图'
+    wallpaperError.value = '每日一图暂时取不到，先退回纯色底'
     console.warn('[cool-nav] 每日一图拉取失败', error)
   }
 }
 
-export async function initWallpaper(): Promise<void> {
-  const storedImages = await storage.readLocal<string[]>(IMAGES_KEY)
-  if (Array.isArray(storedImages)) {
-    localImages.value = storedImages
-  } else {
-    // 早期版本只存得下一张，顺手迁移过来
-    const legacy = await storage.readLocal<string>('background')
-    if (typeof legacy === 'string' && legacy) {
-      localImages.value = [legacy]
-      await storage.writeLocal(IMAGES_KEY, localImages.value)
-    }
+/** 用户点「允许」时调用：必须在点击的手势里，拿到权限再拉图 */
+export async function allowBing(): Promise<boolean> {
+  const ok = await requestOrigin(BING_ORIGIN)
+  if (!ok) {
+    bingNeedsPermission.value = false
+    wallpaperError.value = '没拿到 bing.com 的权限，背景先留在纯色'
+    return false
   }
+  bingNeedsPermission.value = false
+  await ensureBing()
+  await sync()
+  return true
+}
 
+export async function initWallpaper(): Promise<void> {
   const storedState = await storage.readLocal<{ url?: string; at?: number }>(STATE_KEY)
   if (storedState?.url) {
     lastUrl = storedState.url
@@ -148,27 +143,6 @@ export async function initWallpaper(): Promise<void> {
       if (rotateMs() > 0) void sync()
     }, 60_000)
   }
-}
-
-export async function addLocalImages(files: File[]): Promise<number> {
-  const added: string[] = []
-  for (const file of files) added.push(await fileToBackground(file))
-  const next = [...localImages.value, ...added]
-  await storage.writeLocal(IMAGES_KEY, next)
-  localImages.value = next
-  background.value.preset = 'local'
-  await showUrl(added[0])
-  return added.length
-}
-
-export async function removeLocalImage(index: number): Promise<void> {
-  const next = localImages.value.filter((_, i) => i !== index)
-  await storage.writeLocal(IMAGES_KEY, next)
-  localImages.value = next
-  if (background.value.preset !== 'local') return
-  const list = pool()
-  if (!list.length) await sync()
-  else if (!list.includes(currentImage.value)) await showUrl(list[0])
 }
 
 watch(

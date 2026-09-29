@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   clearHistory,
   nav,
@@ -7,22 +7,24 @@ import {
   searchHistory,
   showToast,
 } from '../composables/useNavData'
-import {
-  addLocalImages,
-  localImages,
-  photoUrl,
-  poolSize,
-  removeLocalImage,
-} from '../composables/useWallpaper'
+import { allowBing, poolSize } from '../composables/useWallpaper'
 import { ENGINES, PREFIX_HINT, resolveQuery, type Engine } from '../utils/search'
-import { BACKGROUND_PRESETS } from '../utils/background'
-import { ROTATE_OPTIONS, SCRIM_OPTIONS } from '../utils/wallpaper'
+import { ROTATE_OPTIONS } from '../utils/wallpaper'
 import { focusTile } from '../utils/focus'
+import { setTheme, theme } from '../composables/useTheme'
+import type { ThemeMode } from '../types'
 
-const IMAGE_SOURCES = [
-  { id: 'scene', name: '风景', hint: '内置风景图集，14 张' },
-  { id: 'bing', name: '每日一图', hint: 'Bing 每日一图，每天自动更新' },
-  { id: 'local', name: '我的图库', hint: '上传自己的图片，只存本机' },
+const THEMES: { id: ThemeMode; name: string }[] = [
+  { id: 'system', name: '跟随系统' },
+  { id: 'light', name: '浅色' },
+  { id: 'dark', name: '深色' },
+]
+
+/** 只有三种背景：每日一图（默认）、自己填的图片链接、纯色兜底 —— 没有第二种「内置图」 */
+const BACKGROUNDS = [
+  { id: 'bing', name: '每日一图', hint: 'Bing 每日一图，每天自动换一张' },
+  { id: 'image', name: '自定义图片', hint: '填一个图片地址，只存地址不存图' },
+  { id: 'none', name: '纯色', hint: '不铺图，直接用页面底色' },
 ]
 
 const TABS = [
@@ -39,15 +41,13 @@ const tab = ref('search')
 
 const background = computed(() => nav.settings.background)
 const imageUrl = ref(background.value.preset === 'image' ? background.value.url : '')
-const galleryFile = ref<HTMLInputElement | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
 
 const engine = computed<Engine>(
   () => ENGINES.find((item) => item.id === nav.settings.engineId) ?? ENGINES[0],
 )
 
 const showRotate = computed(() => poolSize.value > 1)
-
-const showScrim = computed(() => Boolean(photoUrl.value))
 
 const suggestions = computed(() =>
   historyOpen.value && nav.settings.historyEnabled ? searchHistory.value.slice(0, 8) : [],
@@ -61,8 +61,15 @@ function submit(value?: string): void {
   window.location.href = resolved.url
 }
 
-function pickPreset(id: string): void {
+async function pickPreset(id: string): Promise<void> {
+  /* 每日一图要 bing.com 的权限，这里也是用户手势，顺便就把权限问了 */
+  if (id === 'bing' && !(await allowBing())) return
   background.value.preset = id
+  /* 选了自定义图片就该马上能粘链接，不用再点一次输入框 */
+  if (id === 'image') {
+    await nextTick()
+    imageInput.value?.focus()
+  }
 }
 
 function applyImageUrl(): void {
@@ -74,27 +81,6 @@ function applyImageUrl(): void {
   background.value.url = url
   background.value.preset = 'image'
   showToast('背景已更新')
-}
-
-async function onGalleryFiles(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
-  if (!files.length) return
-  try {
-    const count = await addLocalImages(files)
-    showToast(`已加入图库 ${count} 张`)
-  } catch (error) {
-    showToast((error as Error).message || '图片处理失败')
-  }
-}
-
-async function onRemoveImage(index: number): Promise<void> {
-  try {
-    await removeLocalImage(index)
-  } catch {
-    showToast('删除失败，刷新后重试')
-  }
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -153,16 +139,16 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 
 <template>
   <!-- 外层只负责定位：不能带动画，否则它会成为层叠上下文，把下拉面板困在里面 -->
-  <div class="relative mx-auto max-w-[560px]">
+  <div class="relative mx-auto w-full max-w-[850px]">
     <div
       class="rise"
       style="--d: 90ms"
     >
     <div
       data-glass
-      class="flex h-[50px] items-center gap-2.5 rounded-[15px] border border-line bg-surface pr-2.5 pl-4 transition duration-150 focus-within:border-accent/55 focus-within:ring-[3px] focus-within:ring-accent/15"
+      class="flex h-[55px] items-center gap-3 rounded-lg pr-3 pl-4 shadow-[0_8px_28px_rgba(16,20,30,0.16)] transition duration-150 focus-within:ring-[3px] focus-within:ring-white/45"
     >
-      <svg class="flex-none text-faint" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <svg class="flex-none text-faint" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </svg>
@@ -254,10 +240,6 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         <div class="my-[13px] h-px bg-line"></div>
 
         <label class="flex cursor-pointer items-center justify-between py-1.5 text-[13px]">
-          <span>显示时钟</span>
-          <input v-model="nav.settings.showClock" class="h-3.5 w-3.5 cursor-pointer accent-accent" type="checkbox" />
-        </label>
-        <label class="flex cursor-pointer items-center justify-between py-1.5 text-[13px]">
           <span>记录搜索历史</span>
           <input v-model="nav.settings.historyEnabled" class="h-3.5 w-3.5 cursor-pointer accent-accent" type="checkbox" />
         </label>
@@ -270,38 +252,30 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         </button>
       </template>
 
-      <template v-else>
-        <div class="mb-[9px] text-[11px] tracking-[0.08em] text-faint">渐变</div>
-        <div class="grid grid-cols-4 gap-1.5">
+      <template v-else-if="tab === 'look'">
+        <div class="mb-[9px] text-[11px] tracking-[0.08em] text-faint">主题</div>
+        <div class="flex gap-1">
           <button
-            v-for="item in BACKGROUND_PRESETS"
+            v-for="item in THEMES"
             :key="item.id"
-            class="cursor-pointer"
-            :title="item.name"
-            @click="pickPreset(item.id)"
+            class="flex-1 cursor-pointer rounded-lg border py-[5px] text-[11.5px]"
+            :class="
+              theme === item.id
+                ? 'border-accent/48 bg-accent/10 text-accent'
+                : 'border-line text-dim hover:text-ink'
+            "
+            @click="setTheme(item.id)"
           >
-            <span
-              class="block h-8 w-full rounded-[9px] border bg-cover bg-center transition"
-              :class="
-                background.preset === item.id
-                  ? 'border-accent ring-2 ring-accent/25'
-                  : 'border-line hover:border-faint'
-              "
-              :style="item.css ? { backgroundImage: item.css } : {}"
-            ></span>
-            <span
-              class="mt-1 block text-[10.5px] leading-none"
-              :class="background.preset === item.id ? 'text-ink' : 'text-faint'"
-            >
-              {{ item.name }}
-            </span>
+            {{ item.name }}
           </button>
         </div>
 
-        <div class="mt-3 mb-[9px] text-[11px] tracking-[0.08em] text-faint">图片</div>
+        <div class="my-[13px] h-px bg-line"></div>
+
+        <div class="mb-[9px] text-[11px] tracking-[0.08em] text-faint">背景</div>
         <div class="grid grid-cols-3 gap-1.5">
           <button
-            v-for="item in IMAGE_SOURCES"
+            v-for="item in BACKGROUNDS"
             :key="item.id"
             class="cursor-pointer rounded-[9px] border px-1 py-[7px] text-[11.5px]"
             :class="
@@ -310,14 +284,15 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
                 : 'border-line text-dim hover:text-ink'
             "
             :title="item.hint"
-            @click="item.id === 'local' && !localImages.length ? galleryFile?.click() : pickPreset(item.id)"
+            @click="pickPreset(item.id)"
           >
             {{ item.name }}
           </button>
         </div>
 
-        <div class="mt-1.5 flex items-center gap-1.5">
+        <div v-if="background.preset === 'image'" class="mt-1.5 flex items-center gap-1.5">
           <input
+            ref="imageInput"
             v-model="imageUrl"
             class="min-w-0 flex-1 rounded-lg border border-line bg-transparent px-2 py-[5px] text-[12px] outline-none placeholder:text-faint focus:border-accent/55"
             type="text"
@@ -332,39 +307,6 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
             使用
           </button>
         </div>
-
-        <div v-if="localImages.length" class="mt-2 flex flex-wrap gap-1.5">
-          <div
-            v-for="(image, index) in localImages"
-            :key="index"
-            class="group/img relative h-[30px] w-[46px] overflow-hidden rounded-[6px] border border-line"
-          >
-            <img class="h-full w-full object-cover" :src="image" alt="" />
-            <button
-              class="absolute inset-0 grid cursor-pointer place-items-center bg-black/45 text-[13px] text-white opacity-0 transition group-hover/img:opacity-100 focus-visible:opacity-100"
-              title="从图库移除"
-              :aria-label="`移除第 ${index + 1} 张图片`"
-              @click="onRemoveImage(index)"
-            >
-              ×
-            </button>
-          </div>
-          <button
-            class="grid h-[30px] w-[46px] cursor-pointer place-items-center rounded-[6px] border border-dashed border-line text-faint hover:border-faint hover:text-dim"
-            title="添加图片"
-            @click="galleryFile?.click()"
-          >
-            +
-          </button>
-        </div>
-        <input
-          ref="galleryFile"
-          class="hidden"
-          type="file"
-          accept="image/*"
-          multiple
-          @change="onGalleryFiles"
-        />
 
         <div v-if="showRotate" class="mt-3">
           <div class="mb-[7px] text-[11px] tracking-[0.08em] text-faint">轮换</div>
@@ -385,30 +327,17 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
           </div>
         </div>
 
-        <div v-if="showScrim" class="mt-3">
-          <div class="mb-[7px] text-[11px] tracking-[0.08em] text-faint">蒙版</div>
-          <div class="flex gap-1">
-            <button
-              v-for="item in SCRIM_OPTIONS"
-              :key="item.id"
-              class="flex-1 cursor-pointer rounded-lg border py-[5px] text-[11.5px]"
-              :class="
-                background.scrim === item.id
-                  ? 'border-accent/48 bg-accent/10 text-accent'
-                  : 'border-line text-dim hover:text-ink'
-              "
-              @click="background.scrim = item.id"
-            >
-              {{ item.name }}
-            </button>
-          </div>
-        </div>
-
         <p class="mt-2.5 m-0 text-[11px] leading-[1.6] text-faint">
           <template v-if="showRotate">共 {{ poolSize }} 张，到点才换图。</template>
-          <template v-if="background.preset === 'local'">自传图片只存本机，不跟随账号同步。</template>
-          <template v-else-if="background.preset === 'scene'">内置风景图集，免账号、按屏幕尺寸取图。</template>
+          <template v-if="background.preset === 'bing'">取不到图就用纯色底，页面其余部分不受影响。</template>
+          <template v-else-if="background.preset === 'image'">只记这串地址，图片本身不存。</template>
+          <template v-else>不铺图，底色跟着搜索引擎换。</template>
         </p>
+
+        <label class="flex cursor-pointer items-center justify-between py-1.5 text-[13px]">
+          <span>显示右侧信息栏</span>
+          <input v-model="nav.settings.showSidePanel" class="h-3.5 w-3.5 cursor-pointer accent-accent" type="checkbox" />
+        </label>
       </template>
     </div>
   </div>

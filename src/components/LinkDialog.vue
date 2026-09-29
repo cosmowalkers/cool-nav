@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { NavLink } from '../types'
 import { domainOf, normalizeUrl } from '../utils/url'
 import { fetchPageTitle } from '../utils/title'
+import { canRequestOrigin, hasOrigin, originPattern, requestOrigin } from '../utils/permissions'
 
-const props = defineProps<{ open: boolean; link: NavLink | null }>()
+const props = defineProps<{ open: boolean; link: NavLink | null; groupName: string }>()
 const emit = defineEmits<{ save: [{ title: string; url: string; icon?: string }]; close: [] }>()
 
 const url = ref('')
@@ -13,7 +14,12 @@ const icon = ref('')
 const fetching = ref(false)
 const titleTouched = ref(false)
 const error = ref('')
+/** 缺 host 权限时记下要申请的域名，界面据此显示「允许读取标题」 */
+const pendingPattern = ref('')
+const note = ref('')
 const urlRef = ref<HTMLInputElement | null>(null)
+
+const pendingHost = computed(() => (pendingPattern.value ? new URL(pendingPattern.value).host : ''))
 
 watch(
   () => props.open,
@@ -24,14 +30,15 @@ watch(
     icon.value = props.link?.icon ?? ''
     titleTouched.value = Boolean(props.link)
     error.value = ''
+    note.value = ''
     fetching.value = false
+    pendingPattern.value = ''
     await nextTick()
     urlRef.value?.focus()
   },
 )
 
-async function autoTitle(): Promise<void> {
-  if (titleTouched.value || title.value.trim()) return
+async function loadTitle(): Promise<void> {
   const target = normalizeUrl(url.value)
   if (!target) return
   fetching.value = true
@@ -41,6 +48,29 @@ async function autoTitle(): Promise<void> {
   } finally {
     fetching.value = false
   }
+}
+
+async function autoTitle(): Promise<void> {
+  if (titleTouched.value || title.value.trim()) return
+  const pattern = originPattern(normalizeUrl(url.value))
+  /* 没授权的域名不偷偷发请求，改成让用户点一下再申请 */
+  if (canRequestOrigin() && !(await hasOrigin(pattern))) {
+    pendingPattern.value = pattern
+    return
+  }
+  await loadTitle()
+}
+
+async function allowTitle(): Promise<void> {
+  const pattern = pendingPattern.value
+  if (!pattern) return
+  if (!(await requestOrigin(pattern))) {
+    pendingPattern.value = ''
+    note.value = '没采纳，名称先用域名。想读标题的话再点一次网址输入框也行'
+    return
+  }
+  pendingPattern.value = ''
+  await loadTitle()
 }
 
 async function onEnterUrl(): Promise<void> {
@@ -71,6 +101,7 @@ function save(): void {
     <div class="w-[380px] rounded-2xl border border-line bg-surface p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
       <div class="mb-[18px] text-[14px] font-medium">
         {{ link ? '编辑链接' : '添加链接' }}
+        <span v-if="groupName" class="font-normal text-faint">· {{ groupName }}</span>
       </div>
 
       <label class="mb-3.5 block">
@@ -87,6 +118,16 @@ function save(): void {
           @keydown.esc="emit('close')"
         />
       </label>
+
+      <p v-if="pendingPattern" class="-mt-2 mb-3.5 text-[12px] leading-5 text-dim">
+        自动填名称要读一次
+        <span class="text-ink">{{ pendingHost }}</span>
+        的页面标题。
+        <button class="cursor-pointer text-accent hover:underline" @click="allowTitle">
+          允许读取
+        </button>
+      </p>
+      <p v-else-if="note" class="-mt-2 mb-3.5 text-[12px] leading-5 text-faint">{{ note }}</p>
 
       <label class="mb-3.5 block">
         <span class="mb-1.5 block text-[11.5px] tracking-[0.06em] text-dim">名称</span>

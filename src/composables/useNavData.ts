@@ -1,15 +1,18 @@
 import { reactive, ref, watch } from 'vue'
-import type { NavData, NavLink, NavSettings } from '../types'
+import type { NavData, NavGroup, NavLink, NavSettings, ThemeMode } from '../types'
 import { storage } from '../storage'
 import { DEFAULT_SETTINGS, seedData } from '../seed'
 import { uid } from '../utils/id'
+import { ENGINES } from '../utils/search'
 
 const DATA_KEY = 'nav'
 const HISTORY_KEY = 'history'
 const HISTORY_MAX = 30
 const SAVE_DELAY = 400
-/** 数据结构版本：2 起把「分组」铺平成一条链接列表 */
-const VERSION = 2
+/** 数据结构版本：1 分组、2 铺平的链接列表、3 又回到分组（列表式导航站的排布） */
+const VERSION = 3
+/** v2 那份铺平数据没有组名，落到这个组里 */
+const FLAT_GROUP_NAME = '常用'
 /** sync 每分钟写入次数有上限，撞上了别丢数据，等一会儿再写 */
 const RETRY_DELAY = 5000
 
@@ -38,7 +41,11 @@ function snapshot(): NavData {
   return {
     version: nav.version,
     settings: { ...nav.settings },
-    links: nav.links.map((link) => ({ ...link })),
+    groups: nav.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      links: group.links.map((link) => ({ ...link })),
+    })),
   }
 }
 
@@ -52,6 +59,11 @@ function text(value: unknown, fallback: string): string {
 
 function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
+}
+
+/** 只认这三个值，别的（含老数据里没有这个字段）一律当跟随系统 */
+function themeMode(value: unknown): ThemeMode {
+  return value === 'light' || value === 'dark' ? value : 'system'
 }
 
 function normalizeLink(raw: unknown): NavLink | null {
@@ -70,15 +82,31 @@ function normalizeLink(raw: unknown): NavLink | null {
 function normalizeSettings(raw: unknown): NavSettings {
   const source = isRecord(raw) ? raw : {}
   const background = isRecord(source.background) ? source.background : {}
+  /* 背景收敛成「每日一图 + 自定义图片 + 纯色」之后的老数据映射：
+     自己打包的那几种图（随机风景 / 星空 / 按引擎）落回每日一图，渐变色和本机图库落回纯色 */
+  const PRESET_MIGRATION: Record<string, string> = {
+    scene: 'bing',
+    starry: 'bing',
+    engine: 'bing',
+    aurora: 'none',
+    dawn: 'none',
+    ink: 'none',
+    local: 'none',
+  }
+  const stored = text(background.preset, DEFAULT_SETTINGS.background.preset)
+  const preset = PRESET_MIGRATION[stored] ?? stored
+  /* 引擎删掉百度 / 掘金 / npm 之后，老数据里这几个 id 落回默认引擎 */
+  const engineId = text(source.engineId, DEFAULT_SETTINGS.engineId)
   return {
-    engineId: text(source.engineId, DEFAULT_SETTINGS.engineId),
-    showClock: flag(source.showClock, DEFAULT_SETTINGS.showClock),
+    engineId: ENGINES.some((item) => item.id === engineId) ? engineId : DEFAULT_SETTINGS.engineId,
+    theme: themeMode(source.theme),
+    city: text(source.city, DEFAULT_SETTINGS.city),
+    showSidePanel: flag(source.showSidePanel, DEFAULT_SETTINGS.showSidePanel),
     historyEnabled: flag(source.historyEnabled, DEFAULT_SETTINGS.historyEnabled),
     background: {
-      preset: text(background.preset, DEFAULT_SETTINGS.background.preset),
+      preset,
       url: text(background.url, DEFAULT_SETTINGS.background.url),
       rotate: text(background.rotate, DEFAULT_SETTINGS.background.rotate),
-      scrim: text(background.scrim, DEFAULT_SETTINGS.background.scrim),
     },
   }
 }
@@ -88,28 +116,46 @@ function linkList(raw: unknown): NavLink[] {
   return raw.map(normalizeLink).filter((link): link is NavLink => link !== null)
 }
 
-/** 旧版按分组存：铺平就是按分组原顺序把链接接成一串，一条都不丢 */
-function flattenGroups(raw: unknown): NavLink[] {
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((group) => (isRecord(group) ? linkList(group.links) : []))
+function normalizeGroup(raw: unknown, index: number): NavGroup | null {
+  if (!isRecord(raw)) return null
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : uid('g'),
+    name: typeof raw.name === 'string' && raw.name ? raw.name : `分组 ${index + 1}`,
+    links: linkList(raw.links),
+  }
 }
 
 /**
  * 读进来的东西可能是旧版本、也可能被同步写坏了：一律过一遍这里，别让坏数据把新标签页打白。
- * 分组结构（version 1）会被铺平，并让调用方顺手把新结构落盘。
+ * v2 那份铺平数据会被包成一个分组，并让调用方顺手把新结构落盘。
  */
-function normalizeNav(raw: unknown): { data: NavData; flattened: boolean } | null {
+function normalizeNav(raw: unknown): { data: NavData; migrated: boolean } | null {
   if (!isRecord(raw)) return null
-  const flat = Array.isArray(raw.links)
-  if (!flat && !Array.isArray(raw.groups)) return null
-  return {
-    data: {
-      version: VERSION,
-      settings: normalizeSettings(raw.settings),
-      links: flat ? linkList(raw.links) : flattenGroups(raw.groups),
-    },
-    flattened: !flat,
+
+  if (Array.isArray(raw.groups)) {
+    const groups = raw.groups
+      .map((group, index) => normalizeGroup(group, index))
+      .filter((group): group is NavGroup => group !== null)
+    return {
+      data: { version: VERSION, settings: normalizeSettings(raw.settings), groups },
+      /* 老版本的组结构和现在一样，但版本号还停在旧值，顺手补写 */
+      migrated: raw.version !== VERSION,
+    }
   }
+
+  if (Array.isArray(raw.links)) {
+    const links = linkList(raw.links)
+    return {
+      data: {
+        version: VERSION,
+        settings: normalizeSettings(raw.settings),
+        groups: links.length ? [{ id: uid('g'), name: FLAT_GROUP_NAME, links }] : [],
+      },
+      migrated: true,
+    }
+  }
+
+  return null
 }
 
 function saveErrorText(message: string): string {
@@ -154,7 +200,7 @@ function scheduleSave(): void {
 function applyData(next: NavData): void {
   nav.version = next.version
   nav.settings = next.settings
-  nav.links = next.links
+  nav.groups = next.groups
 }
 
 /** 别的标签页 / 设备改了数据：本地没有待落盘的改动、也不在编辑中时才跟着变 */
@@ -171,8 +217,8 @@ export async function initNav(): Promise<void> {
   const stored = normalizeNav(raw)
   if (stored) {
     applyData(stored.data)
-    // 老的分组数据顺手按铺平结构落盘，下次打开就不用再转一遍
-    if (stored.flattened) await persist()
+    // 老结构顺手按新结构落盘，下次打开就不用再转一遍
+    if (stored.migrated) await persist()
   } else if (raw === undefined) {
     await persist()
   } else {
@@ -192,8 +238,31 @@ export async function initNav(): Promise<void> {
   }
 }
 
-export function addLink(draft: { title: string; url: string; icon?: string }): void {
-  nav.links.push({
+function findGroup(groupId: string): NavGroup | undefined {
+  return nav.groups.find((group) => group.id === groupId)
+}
+
+export function addGroup(name = '新分组'): void {
+  nav.groups.push({ id: uid('g'), name, links: [] })
+}
+
+export function renameGroup(groupId: string, name: string): void {
+  const group = findGroup(groupId)
+  if (group) group.name = name
+}
+
+export function removeGroup(groupId: string): void {
+  const index = nav.groups.findIndex((group) => group.id === groupId)
+  if (index >= 0) nav.groups.splice(index, 1)
+}
+
+export function addLink(
+  groupId: string,
+  draft: { title: string; url: string; icon?: string },
+): void {
+  const group = findGroup(groupId)
+  if (!group) return
+  group.links.push({
     id: uid('l'),
     title: draft.title,
     url: draft.url,
@@ -201,8 +270,8 @@ export function addLink(draft: { title: string; url: string; icon?: string }): v
   })
 }
 
-export function updateLink(linkId: string, patch: Partial<NavLink>): void {
-  const link = nav.links.find((item) => item.id === linkId)
+export function updateLink(groupId: string, linkId: string, patch: Partial<NavLink>): void {
+  const link = findGroup(groupId)?.links.find((item) => item.id === linkId)
   if (!link) return
   if (patch.title !== undefined) link.title = patch.title
   if (patch.url !== undefined) link.url = patch.url
@@ -212,9 +281,11 @@ export function updateLink(linkId: string, patch: Partial<NavLink>): void {
   }
 }
 
-export function removeLink(linkId: string): void {
-  const index = nav.links.findIndex((link) => link.id === linkId)
-  if (index >= 0) nav.links.splice(index, 1)
+export function removeLink(groupId: string, linkId: string): void {
+  const group = findGroup(groupId)
+  if (!group) return
+  const index = group.links.findIndex((link) => link.id === linkId)
+  if (index >= 0) group.links.splice(index, 1)
 }
 
 export function replaceAll(next: NavData): void {
@@ -234,7 +305,7 @@ export function exportJson(): void {
 
 export function parseImport(json: string): NavData {
   const parsed = normalizeNav(JSON.parse(json))
-  if (!parsed) throw new Error('文件里没有 links（也没有旧版的 groups）字段')
+  if (!parsed) throw new Error('文件里没有 groups（也没有 v2 的 links）字段')
   return parsed.data
 }
 

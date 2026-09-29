@@ -1,59 +1,36 @@
 @import 'tailwindcss';
 
-/* 设计 token：改这里就能改全局，深浅色靠覆盖同名变量实现 */
+/* 设计 token：改这里就能改全局。
+   亮暗两套用 light-dark() 写在同一个值里——只有一份色板，
+   切哪个由 <html> 上的 color-scheme 决定（见下面的 @layer base）。
+   数值对齐参考站（kulayu）：14px 正文、#f0f2f5 底、纯白卡片、#f1f2f3 细边框 */
 @theme {
-  --color-bg: #f6f6f4;
-  --color-ink: #1b1c1e;
-  --color-dim: #8b8d94;
-  --color-faint: #b9bbc1;
-  --color-line: rgba(0, 0, 0, 0.08);
-  --color-hover: rgba(0, 0, 0, 0.045);
-  --color-surface: #ffffff;
-  --color-accent: #4b6bfb;
-
-  --radius-tile: 14px;
+  --color-bg: light-dark(#f0f2f5, #16181c);
+  --color-surface: light-dark(#ffffff, #1e2025);
+  --color-ink: light-dark(#17181a, #e9eaec);
+  --color-dim: light-dark(#5f646c, #a0a5ad);
+  --color-faint: light-dark(#8b9099, #757a83);
+  --color-line: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.1));
+  --color-hair: light-dark(#f1f2f3, rgba(255, 255, 255, 0.07));
+  --color-hover: light-dark(#f1f2f3, rgba(255, 255, 255, 0.06));
+  /* 孟菲斯洋红：比原来的钴蓝更跳，压在白底上仍然能当正文色读（5.4:1） */
+  --color-accent: light-dark(#d1006e, #ff7ab8);
 }
 
-/* 未进 layer 的规则优先级高于 @theme 生成的变量，覆盖即可切暗色 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #16171a;
-    --color-ink: #e9e9ec;
-    --color-dim: #8f9199;
-    --color-faint: #5b5e66;
-    --color-line: rgba(255, 255, 255, 0.09);
-    --color-hover: rgba(255, 255, 255, 0.07);
-    --color-surface: #1e1f23;
-    --color-accent: #7c95ff;
-  }
+/* 搜索框压在顶图上：半透明 + 毛玻璃；下拉里全是小字，用实底 */
+[data-glass] {
+  background: color-mix(in srgb, var(--color-surface) 62%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
-/* 有背景图时锁死深色文字体系：文字压在图上，浅底黑字读不出来 */
-:root[data-bg='dark'] {
-  color-scheme: dark;
-
-  --color-bg: #0b0d14;
-  --color-ink: #f4f5f8;
-  --color-dim: rgba(255, 255, 255, 0.68);
-  --color-faint: rgba(255, 255, 255, 0.44);
-  --color-line: rgba(255, 255, 255, 0.14);
-  --color-hover: rgba(255, 255, 255, 0.11);
-  --color-surface: rgba(17, 19, 26, 0.88);
-  --color-accent: #93a6ff;
+[data-glass='panel'] {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-/* 半透明面板叠毛玻璃，压住背景图里的高频细节，文字才站得住 */
-:root[data-bg='dark'] [data-glass] {
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
-}
-
-/* 下拉面板里全是小字，直接用实底，透一点都会和壁纸里的细节糊在一起 */
-:root[data-bg='dark'] [data-glass='panel'] {
-  background-color: #12141b;
-}
-
-/* 分段控件：浅色下靠白底浮起来，深色下靠白色叠加提亮 */
+/* 分段控件：浅色下靠白底浮起来 */
 .seg {
   background: var(--color-hover);
 }
@@ -63,23 +40,19 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-:root[data-bg='dark'] .seg {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-:root[data-bg='dark'] .seg-active {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: none;
-}
-
-/* 文字压在照片上，一层极淡的阴影比加深蒙版更划算：不牺牲画面 */
-:root[data-bg='dark'] .page {
-  text-shadow: 0 1px 8px rgba(6, 8, 14, 0.5);
-}
-
 @layer base {
   :root {
+    /* 跟随系统；显式切亮/暗时 useTheme 会写 data-theme 覆盖掉它。
+       light-dark() 认的就是这个属性，所以深浅色切换不需要第二份 token */
     color-scheme: light dark;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
   }
 
   html,
@@ -112,9 +85,10 @@
   }
 }
 
-/* 壁纸层：渐变常驻，图片走交叉淡入 */
+/* 顶图：只铺在 hero 那一条，渐变打底、图片交叉淡入。
+   页面下半部分是纯色，所以整页不需要任何蒙层 */
 .wall {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background-position: center;
   background-size: cover;
@@ -131,8 +105,7 @@
   opacity: 0;
 }
 
-/* 极慢推近，让静态壁纸有一点呼吸感 */
-.wall-photo {
+.hero-photo {
   animation: drift 52s ease-out both;
 }
 
@@ -145,55 +118,70 @@
   }
 }
 
-/* 颗粒：只压在有背景的页面上，去掉一点数码味 */
-.grain {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 140px 140px;
-  opacity: 0.05;
-  mix-blend-mode: overlay;
+/* 顶图压一条底边，和下面的纯色之间有明确分界，但不需要蒙层 */
+.hero {
+  /* 没图时的那一条：底色跟着搜索引擎换，纯色兜底也就是它 */
+  background: var(--hero-tone, var(--color-bg));
+  box-shadow: 0 1px 0 var(--color-line);
 }
 
-/* 图标底板：统一 44px 方块。有壁纸时做成磨砂玻璃，
-   不管 favicon 是深色还是浅色都看得见，视觉上也比裸图标整一堆更整 */
-.plate {
-  border-radius: 14px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
-  box-shadow: 0 1px 2px rgba(16, 20, 30, 0.05);
-  transition:
-    transform 200ms ease,
-    background-color 200ms ease;
-}
-
-:root[data-bg='dark'] .plate {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: none;
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  backdrop-filter: blur(10px) saturate(1.2);
-}
-
-/* hover 反馈只做在底板上，整块格子不再亮一大片 */
-.tile-link:hover .plate {
-  transform: scale(1.06);
-}
-
-:root[data-bg='dark'] .tile-link:hover .plate {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-/* 时间：大字号才压得住壁纸，加一点阴影兜底可读性 */
 .time {
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 20px rgba(6, 8, 14, 0.32);
+}
+
+/* 左侧分组项：选中态用品牌色渐变 + 左边缘竖条。
+   竖条挂在卡片内边距之外，正好贴住卡片左边 */
+.side-item {
+  position: relative;
+}
+
+.side-item[data-active='true'] {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-accent) 10%, transparent) 10%,
+    transparent 99%
+  );
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.side-item[data-active='true']::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 28px;
+  background: var(--color-accent);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 站点卡片：hover 时底色变浅灰 + 微抬，和参考站的卡片一个意思 */
+.card {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.2s ease;
+}
+
+.card:hover {
+  background-color: var(--color-hover);
+  border-color: var(--color-hover);
+}
+
+/* 键盘走到哪张卡片得一眼看出来 */
+.card:focus-visible {
+  outline: none;
+  background-color: var(--color-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 /* 入场：一次编排好的错峰上浮，比零散微交互更耐看。
    fill-mode 只用 backwards：动画一结束就交还自然样式，
-   不然 transform 会一直挂在那儿，把元素变成层叠上下文，下拉面板就被压在图标下面了 */
+   不然 transform 会一直挂在那儿，把元素变成层叠上下文，下拉面板就被压在下面了 */
 .rise {
   animation-name: rise;
-  animation-duration: 620ms;
+  animation-duration: 560ms;
   animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
   animation-fill-mode: backwards;
   animation-delay: var(--d, 0ms);
@@ -212,7 +200,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .wall-photo {
+  .hero-photo {
     animation: none;
   }
 
@@ -220,31 +208,8 @@
   .wall-leave-active {
     transition-duration: 1ms;
   }
-}
 
-/* 需要「父级 hover 才显形、自身 hover 又要有更高优先级」的唯一一处交互，
-   用工具类表达会很别扭，直接写成两条规则更清楚 */
-.page:hover .edit-toggle {
-  opacity: 0.5;
-}
-
-.edit-toggle:hover,
-.edit-toggle[data-active='true'] {
-  opacity: 1;
-}
-
-/* 键盘走到哪块瓦片得一眼看出来：和输入框同一套强调色，但瓦片小、往往还压在壁纸上，
-   所以描边和外圈都比输入框那套更实一点，1x 之下也要能看见 */
-.tile-link:focus-visible {
-  outline: none;
-}
-
-.tile-link:focus-visible .plate {
-  border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-/* 右上角那支铅笔平时是隐形的，键盘走到它必须显形，否则就是一个看不见的焦点 */
-.page .edit-toggle:focus-visible {
-  opacity: 1;
+  .card {
+    transition: none;
+  }
 }
