@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { fillingIcons, fillMissingIcons } from '../composables/useLinkIcons'
+
 const emit = defineEmits<{
   addGroup: []
   exportData: []
@@ -12,6 +14,14 @@ const emit = defineEmits<{
   >
     <span class="text-[12px] whitespace-nowrap text-faint">编辑中 · 拖拽调整顺序 · Esc 退出</span>
     <span class="h-3.5 w-px bg-line"></span>
+    <button
+      class="cursor-pointer rounded-lg px-2 py-1 text-[12.5px] text-dim hover:bg-hover hover:text-ink disabled:cursor-default disabled:text-faint"
+      :disabled="fillingIcons"
+      title="逐个访问还没有图标的站点，读它页面里声明的图标（需要一次访问权限）"
+      @click="fillMissingIcons()"
+    >
+      {{ fillingIcons ? '补图标中…' : '补全图标' }}
+    </button>
     <button
       class="cursor-pointer rounded-lg px-2 py-1 text-[12.5px] text-dim hover:bg-hover hover:text-ink"
       @click="emit('addGroup')"

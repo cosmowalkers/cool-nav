@@ -1,19 +1,32 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { NavLink } from '../types'
-import { colorOf, faviconUrl, initialOf } from '../utils/icon'
+import { colorOf, faviconUrl, initialOf, siteIconUrl } from '../utils/icon'
 import { isDragging } from '../composables/useDragState'
+import { iconMissed, rememberIconMiss } from '../composables/useIconMiss'
 
 const props = defineProps<{ link: NavLink; editing: boolean }>()
 const emit = defineEmits<{ edit: []; remove: [] }>()
 
-const iconFailed = ref(false)
-
-const iconSrc = computed(() => {
-  if (props.link.icon) return props.link.icon
-  if (iconFailed.value) return ''
-  return faviconUrl(props.link.url, 64)
+/** 依次尝试：自定义图标 → 浏览器缓存的 favicon → 站点自己的 /favicon.ico → 色块 */
+const candidates = computed(() => {
+  const list: string[] = []
+  if (props.link.icon) list.push(props.link.icon)
+  const cached = faviconUrl(props.link.url, 64)
+  if (cached) list.push(cached)
+  const site = siteIconUrl(props.link.url)
+  if (site && !iconMissed(props.link.url)) list.push(site)
+  return list
 })
+
+const stage = ref(0)
+const iconSrc = computed(() => candidates.value[stage.value] ?? '')
+
+function onIconError(): void {
+  /* 站点自己那张也挂了，就记下来，一周内不再为一个补不到的图标打扰它 */
+  if (candidates.value[stage.value] === siteIconUrl(props.link.url)) rememberIconMiss(props.link.url)
+  stage.value += 1
+}
 
 const fallbackStyle = computed(() => ({ background: colorOf(props.link.url) }))
 const fallbackText = computed(() => initialOf(props.link))
@@ -22,7 +35,7 @@ const fallbackText = computed(() => initialOf(props.link))
 watch(
   () => [props.link.url, props.link.icon],
   () => {
-    iconFailed.value = false
+    stage.value = 0
   },
 )
 
@@ -53,7 +66,7 @@ function onClick(event: MouseEvent): void {
           class="h-full w-full object-contain"
           :src="iconSrc"
           alt=""
-          @error="iconFailed = true"
+          @error="onIconError"
         />
         <template v-else>{{ fallbackText }}</template>
       </span>

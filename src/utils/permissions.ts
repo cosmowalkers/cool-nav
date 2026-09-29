@@ -46,3 +46,17 @@ export async function requestOrigin(pattern: string): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * 一次申请一组权限（比如「补全图标」要逐站访问一遍，就一次把 http/https 全要了）。
+ * 同样只能在用户点击里调用。没有扩展 API 时（网页预览）当作通过：那边本来就没有权限模型，
+ * 跨域成不成由 CORS 决定。
+ */
+export async function requestOrigins(patterns: string[]): Promise<boolean> {
+  if (typeof api?.request !== 'function') return true
+  try {
+    return await api.request({ origins: patterns })
+  } catch {
+    return false
+  }
+}

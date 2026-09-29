@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { NavLink } from '../types'
 import { domainOf, normalizeUrl } from '../utils/url'
-import { fetchPageTitle } from '../utils/title'
+import { fetchPageMeta } from '../utils/title'
 import { canRequestOrigin, hasOrigin, originPattern, requestOrigin } from '../utils/permissions'
 
 const props = defineProps<{ open: boolean; link: NavLink | null; groupName: string }>()
@@ -17,6 +17,8 @@ const error = ref('')
 /** 缺 host 权限时记下要申请的域名，界面据此显示「允许读取标题」 */
 const pendingPattern = ref('')
 const note = ref('')
+/** 页面自己声明的图标：用户没填图标时就用它，省得以后靠浏览器缓存碰运气 */
+const fetchedIcon = ref('')
 const urlRef = ref<HTMLInputElement | null>(null)
 
 const pendingHost = computed(() => (pendingPattern.value ? new URL(pendingPattern.value).host : ''))
@@ -31,6 +33,7 @@ watch(
     titleTouched.value = Boolean(props.link)
     error.value = ''
     note.value = ''
+    fetchedIcon.value = ''
     fetching.value = false
     pendingPattern.value = ''
     await nextTick()
@@ -43,8 +46,9 @@ async function loadTitle(): Promise<void> {
   if (!target) return
   fetching.value = true
   try {
-    const fetched = await fetchPageTitle(target)
-    if (fetched && !titleTouched.value && !title.value.trim()) title.value = fetched
+    const meta = await fetchPageMeta(target)
+    if (meta.icon && !icon.value.trim()) fetchedIcon.value = meta.icon
+    if (meta.title && !titleTouched.value && !title.value.trim()) title.value = meta.title
   } finally {
     fetching.value = false
   }
@@ -87,7 +91,7 @@ function save(): void {
   emit('save', {
     title: title.value.trim() || domainOf(target),
     url: target,
-    icon: icon.value.trim() || undefined,
+    icon: icon.value.trim() || fetchedIcon.value || undefined,
   })
 }
 </script>

@@ -20,6 +20,22 @@ export function initialOf(link: { title: string; url: string }): string {
 }
 
 /**
+ * 站点自己放在根目录的图标（约定俗成的位置）。
+ *
+ * 为什么需要它：`_favicon` 只认浏览器**已经缓存过**的图标——没在这个浏览器里打开过的站点，
+ * 缓存里就是没有，取不到就只剩色块。这跟网速无关，跟「你访问过没有」有关。
+ * 所以缓存里没有时，直接跟站点要一次它自己的 `/favicon.ico`：只发往用户自己放进导航的站点，
+ * 中途不经过任何第三方图标服务（这也是当初不用 Google s2 的原因）。
+ */
+export function siteIconUrl(url: string): string {
+  try {
+    return `${new URL(url).origin}/favicon.ico`
+  } catch {
+    return ''
+  }
+}
+
+/**
  * 兜底色板：孟菲斯那一套高饱和色，8 组写死。
  *
  * 早先是按色相现算（S 54% / L 57%→40%），出来是砖红、土黄这类灰扑扑的颜色；
