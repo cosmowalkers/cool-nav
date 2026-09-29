@@ -1,0 +1,250 @@
+@import 'tailwindcss';
+
+/* 设计 token：改这里就能改全局，深浅色靠覆盖同名变量实现 */
+@theme {
+  --color-bg: #f6f6f4;
+  --color-ink: #1b1c1e;
+  --color-dim: #8b8d94;
+  --color-faint: #b9bbc1;
+  --color-line: rgba(0, 0, 0, 0.08);
+  --color-hover: rgba(0, 0, 0, 0.045);
+  --color-surface: #ffffff;
+  --color-accent: #4b6bfb;
+
+  --radius-tile: 14px;
+}
+
+/* 未进 layer 的规则优先级高于 @theme 生成的变量，覆盖即可切暗色 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #16171a;
+    --color-ink: #e9e9ec;
+    --color-dim: #8f9199;
+    --color-faint: #5b5e66;
+    --color-line: rgba(255, 255, 255, 0.09);
+    --color-hover: rgba(255, 255, 255, 0.07);
+    --color-surface: #1e1f23;
+    --color-accent: #7c95ff;
+  }
+}
+
+/* 有背景图时锁死深色文字体系：文字压在图上，浅底黑字读不出来 */
+:root[data-bg='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #0b0d14;
+  --color-ink: #f4f5f8;
+  --color-dim: rgba(255, 255, 255, 0.68);
+  --color-faint: rgba(255, 255, 255, 0.44);
+  --color-line: rgba(255, 255, 255, 0.14);
+  --color-hover: rgba(255, 255, 255, 0.11);
+  --color-surface: rgba(17, 19, 26, 0.88);
+  --color-accent: #93a6ff;
+}
+
+/* 半透明面板叠毛玻璃，压住背景图里的高频细节，文字才站得住 */
+:root[data-bg='dark'] [data-glass] {
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+/* 下拉面板里全是小字，直接用实底，透一点都会和壁纸里的细节糊在一起 */
+:root[data-bg='dark'] [data-glass='panel'] {
+  background-color: #12141b;
+}
+
+/* 分段控件：浅色下靠白底浮起来，深色下靠白色叠加提亮 */
+.seg {
+  background: var(--color-hover);
+}
+
+.seg-active {
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+:root[data-bg='dark'] .seg {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-bg='dark'] .seg-active {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+/* 文字压在照片上，一层极淡的阴影比加深蒙版更划算：不牺牲画面 */
+:root[data-bg='dark'] .page {
+  text-shadow: 0 1px 8px rgba(6, 8, 14, 0.5);
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+      'Microsoft YaHei', sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+  }
+}
+
+/* 壁纸层：渐变常驻，图片走交叉淡入 */
+.wall {
+  position: fixed;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.wall-enter-active,
+.wall-leave-active {
+  transition: opacity 900ms ease-out;
+}
+
+.wall-enter-from,
+.wall-leave-to {
+  opacity: 0;
+}
+
+/* 极慢推近，让静态壁纸有一点呼吸感 */
+.wall-photo {
+  animation: drift 52s ease-out both;
+}
+
+@keyframes drift {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.075);
+  }
+}
+
+/* 颗粒：只压在有背景的页面上，去掉一点数码味 */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* 图标底板：统一 44px 方块。有壁纸时做成磨砂玻璃，
+   不管 favicon 是深色还是浅色都看得见，视觉上也比裸图标整一堆更整 */
+.plate {
+  border-radius: 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgba(16, 20, 30, 0.05);
+  transition:
+    transform 200ms ease,
+    background-color 200ms ease;
+}
+
+:root[data-bg='dark'] .plate {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+
+/* hover 反馈只做在底板上，整块格子不再亮一大片 */
+.tile-link:hover .plate {
+  transform: scale(1.06);
+}
+
+:root[data-bg='dark'] .tile-link:hover .plate {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* 时间：大字号才压得住壁纸，加一点阴影兜底可读性 */
+.time {
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 20px rgba(6, 8, 14, 0.32);
+}
+
+/* 入场：一次编排好的错峰上浮，比零散微交互更耐看。
+   fill-mode 只用 backwards：动画一结束就交还自然样式，
+   不然 transform 会一直挂在那儿，把元素变成层叠上下文，下拉面板就被压在图标下面了 */
+.rise {
+  animation-name: rise;
+  animation-duration: 620ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .wall-photo {
+    animation: none;
+  }
+
+  .wall-enter-active,
+  .wall-leave-active {
+    transition-duration: 1ms;
+  }
+}
+
+/* 需要「父级 hover 才显形、自身 hover 又要有更高优先级」的唯一一处交互，
+   用工具类表达会很别扭，直接写成两条规则更清楚 */
+.page:hover .edit-toggle {
+  opacity: 0.5;
+}
+
+.edit-toggle:hover,
+.edit-toggle[data-active='true'] {
+  opacity: 1;
+}
+
+/* 键盘走到哪块瓦片得一眼看出来：和输入框同一套强调色，但瓦片小、往往还压在壁纸上，
+   所以描边和外圈都比输入框那套更实一点，1x 之下也要能看见 */
+.tile-link:focus-visible {
+  outline: none;
+}
+
+.tile-link:focus-visible .plate {
+  border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* 右上角那支铅笔平时是隐形的，键盘走到它必须显形，否则就是一个看不见的焦点 */
+.page .edit-toggle:focus-visible {
+  opacity: 1;
+}
