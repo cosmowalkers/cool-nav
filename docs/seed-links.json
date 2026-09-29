@@ -1,81 +1,182 @@
 {
-  "_comment": "从浏览器收藏夹（715 条）里筛出来的备选链接池，共 45 条。它不参与构建，也不需要预装；想用的时候在编辑模式里『导入』即可（注意：导入会覆盖当前数据）。不需要这个文件可以直接删。",
+  "_comment": "官方预置之外的备选链接池，不参与构建。想用的时候在编辑模式里『导入』（注意：导入会覆盖当前数据）。",
   "version": 1,
-  "settings": { "engineId": "bing", "showClock": true, "historyEnabled": true },
+  "settings": {
+    "engineId": "bing",
+    "theme": "system",
+    "city": "",
+    "showSidePanel": true,
+    "historyEnabled": true
+  },
   "groups": [
-    {
-      "name": "工作",
-      "links": [
-        { "title": "飞书", "url": "https://sugon-hpc.feishu.cn/" },
-        { "title": "个人知识库", "url": "https://sugon-hpc.feishu.cn/wiki/KJOEwDcRliOIcNkWdmFc98aznIe" },
-        { "title": "禅道", "url": "https://hpczentao.sugon.com/my/" },
-        { "title": "GitLab", "url": "http://gitlab.hpc.sugon.com/" },
-        { "title": "研发内网", "url": "https://sugonhpc.com/inet.html" },
-        { "title": "SCNet X 控制台", "url": "https://www.scnet.cn/ui/gw/?page=api-keys" },
-        { "title": "超算互联网", "url": "https://www.scnet.cn/ui/mall/" },
-        { "title": "云协作办公平台", "url": "https://soa.com.cn/portalpage/" },
-        { "title": "aTrust", "url": "https://v.soa.com.cn/portal/#/down_client_new" }
-      ]
-    },
-    {
-      "name": "AI · Agent",
-      "links": [
-        { "title": "DeepWiki", "url": "https://deepwiki.com.cn/" },
-        { "title": "SkillsMP", "url": "https://skillsmp.com/" },
-        { "title": "Cursor Directory", "url": "https://cursor.directory/" },
-        { "title": "Awesome MCP Servers", "url": "https://mcpservers.org/" },
-        { "title": "深入理解 AI Agent（开源书）", "url": "https://github.com/bojieli/ai-agent-book" },
-        { "title": "Skills for Real Engineers", "url": "https://github.com/mattpocock/skills" },
-        { "title": "OpenRouter", "url": "https://openrouter.ai/settings/keys" },
-        { "title": "DeepSeek 开放平台", "url": "https://platform.deepseek.com/usage" },
-        { "title": "Ollama", "url": "https://ollama.com/" }
-      ]
-    },
     {
       "name": "开发",
       "links": [
-        { "title": "GitHub", "url": "https://github.com/" },
-        { "title": "掘金", "url": "https://juejin.cn/" },
-        { "title": "前端知识图谱", "url": "https://f2e.tech/mindmap" },
-        { "title": "Vue 3 文档", "url": "https://cn.vuejs.org/" },
-        { "title": "Element Plus", "url": "https://element-plus.org/zh-CN/" },
-        { "title": "VitePress", "url": "https://vitepress.dev/" },
-        { "title": "MDN", "url": "https://developer.mozilla.org/zh-CN/" },
-        { "title": "Stack Overflow", "url": "https://stackoverflow.com/" }
+        {
+          "title": "TypeScript 手册",
+          "url": "https://www.typescriptlang.org/docs/"
+        },
+        {
+          "title": "Vite",
+          "url": "https://cn.vitejs.dev/"
+        },
+        {
+          "title": "Tailwind CSS",
+          "url": "https://tailwindcss.com/"
+        },
+        {
+          "title": "Node.js",
+          "url": "https://nodejs.org/zh-cn"
+        },
+        {
+          "title": "Git 手册",
+          "url": "https://git-scm.com/book/zh/v2"
+        },
+        {
+          "title": "VS Code",
+          "url": "https://code.visualstudio.com/"
+        },
+        {
+          "title": "CodePen",
+          "url": "https://codepen.io/"
+        },
+        {
+          "title": "LeetCode",
+          "url": "https://leetcode.cn/"
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "links": [
+        {
+          "title": "智谱清言",
+          "url": "https://chatglm.cn/"
+        },
+        {
+          "title": "腾讯元宝",
+          "url": "https://yuanbao.tencent.com/"
+        },
+        {
+          "title": "文心一言",
+          "url": "https://yiyan.baidu.com/"
+        },
+        {
+          "title": "OpenRouter",
+          "url": "https://openrouter.ai/"
+        },
+        {
+          "title": "Hugging Face",
+          "url": "https://huggingface.co/"
+        },
+        {
+          "title": "ModelScope 魔搭",
+          "url": "https://modelscope.cn/"
+        }
+      ]
+    },
+    {
+      "name": "资讯·社区",
+      "links": [
+        {
+          "title": "V2EX",
+          "url": "https://www.v2ex.com/"
+        },
+        {
+          "title": "SegmentFault",
+          "url": "https://segmentfault.com/"
+        },
+        {
+          "title": "OSCHINA",
+          "url": "https://www.oschina.net/"
+        },
+        {
+          "title": "IT 之家",
+          "url": "https://www.ithome.com/"
+        },
+        {
+          "title": "爱范儿",
+          "url": "https://www.ifanr.com/"
+        },
+        {
+          "title": "阮一峰的网络日志",
+          "url": "https://www.ruanyifeng.com/blog/"
+        }
       ]
     },
     {
       "name": "工具",
       "links": [
-        { "title": "在线工具", "url": "https://tool.lu/" },
-        { "title": "Mermaid Live Editor", "url": "https://mermaid.live/" },
-        { "title": "Obsidian 中文教程", "url": "https://publish.obsidian.md/chinesehelp" },
-        { "title": "PixPin", "url": "https://pixpin.cn/" },
-        { "title": "jwt.io", "url": "https://www.jwt.io/" },
-        { "title": "Coolors", "url": "https://coolors.co/" },
-        { "title": "ray.so", "url": "https://ray.so/" },
-        { "title": "public-apis", "url": "https://github.com/public-apis/public-apis" }
+        {
+          "title": "Carbon 代码截图",
+          "url": "https://carbon.now.sh/"
+        },
+        {
+          "title": "Shields.io 徽章",
+          "url": "https://shields.io/"
+        },
+        {
+          "title": "Excalidraw",
+          "url": "https://excalidraw.com/"
+        },
+        {
+          "title": "TinyPNG 之外的 Squoosh",
+          "url": "https://squoosh.app/"
+        },
+        {
+          "title": "在线正则 regex101",
+          "url": "https://regex101.com/"
+        },
+        {
+          "title": "JSON Crack",
+          "url": "https://jsoncrack.com/"
+        }
       ]
     },
     {
-      "name": "阅读 · 成长",
+      "name": "影音·阅读",
       "links": [
-        { "title": "少数派", "url": "https://sspai.com/" },
-        { "title": "阮一峰的网络日志", "url": "https://www.ruanyifeng.com/blog/" },
-        { "title": "Hello 算法", "url": "https://www.hello-algo.com/" },
-        { "title": "Awsome-Courses", "url": "https://github.com/forthespada/Awsome-Courses" },
-        { "title": "英语学习资源", "url": "https://github.com/knowledgefxg/learning-english" },
-        { "title": "卡片笔记法", "url": "https://zettelkasten.de/introduction/zh/" },
-        { "title": "中文优质 RSS 源", "url": "https://github.com/weekend-project-space/top-rss-list" }
+        {
+          "title": "豆瓣电影",
+          "url": "https://movie.douban.com/"
+        },
+        {
+          "title": "微信读书",
+          "url": "https://weread.qq.com/"
+        },
+        {
+          "title": "小宇宙播客",
+          "url": "https://www.xiaoyuzhoufm.com/"
+        },
+        {
+          "title": "网易云音乐",
+          "url": "https://music.163.com/"
+        },
+        {
+          "title": "YouTube",
+          "url": "https://www.youtube.com/"
+        }
       ]
     },
     {
       "name": "生活",
       "links": [
-        { "title": "高德地图", "url": "https://ditu.amap.com/" },
-        { "title": "Z-Library 入口", "url": "https://zlibrary.sodanav.com/" },
-        { "title": "熊猫搜书", "url": "https://xmsoushu.com/" },
-        { "title": "Runner's World", "url": "https://www.runnersworld.com/" }
+        {
+          "title": "高德地图",
+          "url": "https://www.amap.com/"
+        },
+        {
+          "title": "大众点评",
+          "url": "https://www.dianping.com/"
+        },
+        {
+          "title": "携程旅行",
+          "url": "https://www.ctrip.com/"
+        },
+        {
+          "title": "中国天气网",
+          "url": "https://www.weather.com.cn/"
+        }
       ]
     }
   ]

@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cool Nav · 图标方案</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --card: #171a21;
+        --line: #262a33;
+        --ink: #e8ebf2;
+        --dim: #98a1b3;
+        --faint: #6b7488;
+        --accent: #7c95ff;
+        --light-bg: #eef0f4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 32px 120px;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      }
+      header {
+        max-width: 1240px;
+        margin: 0 auto 28px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      header p {
+        margin: 0;
+        color: var(--dim);
+        max-width: 78ch;
+      }
+      header code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: #20242d;
+        color: var(--ink);
+        font-size: 12.5px;
+      }
+      .grid {
+        max-width: 1240px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      }
+      .card {
+        position: relative;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+      }
+      .card:hover {
+        border-color: #3a4150;
+        transform: translateY(-1px);
+      }
+      .card[data-picked="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(124, 149, 255, 0.22);
+      }
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .no {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: #232833;
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .name {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .why {
+        margin-left: auto;
+        color: var(--faint);
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pad {
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        flex: none;
+      }
+      .on-dark {
+        width: 92px;
+        height: 92px;
+        background: #0b0d11;
+      }
+      .on-light {
+        width: 92px;
+        height: 92px;
+        background: var(--light-bg);
+      }
+      .on-photo {
+        flex: 1;
+        height: 92px;
+        /* 顶图位置的观感：用渐变近似一张风景图（页面自身已不再打包图片资源） */
+        background: linear-gradient(178deg, #2f68b8 0%, #6fa4d8 42%, #dfe9f2 62%, #9fb3c4 100%);
+      }
+      .strip {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #f2f4f8;
+      }
+      .strip figure {
+        margin: 0;
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+      }
+      .strip figcaption {
+        color: #6b7488;
+        font-size: 10px;
+        line-height: 1;
+      }
+      .meta {
+        margin-top: 14px;
+        color: var(--dim);
+        font-size: 12.5px;
+      }
+      .meta b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .tag {
+        display: inline-block;
+        margin: 10px 6px 0 0;
+        padding: 2px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--faint);
+        font-size: 11.5px;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--faint);
+        font-size: 12px;
+      }
+      textarea {
+        width: 100%;
+        height: 150px;
+        margin-top: 8px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #10131a;
+        color: #b9c2d4;
+        font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        resize: vertical;
+      }
+      .picked-badge {
+        display: none;
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #0b0d11;
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+      .card[data-picked="true"] .picked-badge {
+        display: block;
+      }
+      .dump {
+        max-width: 1240px;
+        margin: 18px auto 0;
+        padding: 14px 16px;
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        color: var(--dim);
+        font-size: 12.5px;
+      }
+      footer {
+        position: fixed;
+        inset: auto 0 0;
+        padding: 14px 32px;
+        border-top: 1px solid var(--line);
+        background: rgba(15, 17, 21, 0.92);
+        backdrop-filter: blur(10px);
+        text-align: center;
+        font-size: 13.5px;
+      }
+      footer b {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Cool Nav 图标 · 6 个方案</h1>
+      <p>
+        每个方案都按真实使用场景摆好了：左边是深色/浅色底上的样子，右边是压在顶图上的观感（用渐变近似），
+        下面一排是 <code>48 / 32 / 24 / 16px</code> —— 16px 是扩展工具栏和网页标签页里的大小，那一眼能不能认出来才算过关。
+        已定稿 <b>3 号</b>（就是标着「已选」的那张）：16px 用简化版只留 C，48 / 128 用完整图形。这页留着当设计记录。
+      </p>
+    </header>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="dump">
+      选好之后我按 128 / 48 / 16 三档出 PNG 塞进 <code>public/icons/</code>，顺手把商店页那几张也一起换掉。
+    </div>
+
+    <footer>已选：<b id="picked">3 号 · C + 箭头</b></footer>
+
+    <script>
+      /* 所有图标同一个画布：128×128、圆角 30、纯色底 —— 视觉重量才一致 */
+      const ICONS = [
+        {
+          no: 1,
+          name: '罗盘针',
+          why: '导航隐喻最直白',
+          note: '「打开哪个方向」一眼就懂，几何简单所以 16px 下最稳。风险是罗盘用得太多、辨识度靠配色。',
+          tags: ['16px 稳', '通用'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <circle cx="64" cy="64" r="33" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="6"/>
+  <path d="M64 33.5 77.5 64 64 94.5 50.5 64Z" fill="#fff"/>
+  <circle cx="64" cy="64" r="5.5" fill="#2b5cf6"/>`,
+        },
+        {
+          no: 2,
+          name: '九宫格',
+          why: '就是新标签页本身',
+          note: '直接把「一格格站点」画出来，高亮中间那格表示当前位置——密度高、体积小、点阵感强。',
+          tags: ['贴合产品', '点阵'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <g fill="#fff">
+    <rect x="26" y="26" width="20" height="20" rx="6"/>
+    <rect x="54" y="26" width="20" height="20" rx="6"/>
+    <rect x="82" y="26" width="20" height="20" rx="6"/>
+    <rect x="26" y="54" width="20" height="20" rx="6"/>
+    <rect x="82" y="54" width="20" height="20" rx="6"/>
+    <rect x="26" y="82" width="20" height="20" rx="6"/>
+    <rect x="54" y="82" width="20" height="20" rx="6"/>
+    <rect x="82" y="82" width="20" height="20" rx="6"/>
+  </g>
+  <rect x="54" y="54" width="20" height="20" rx="6" fill="#c9d6ff"/>`,
+        },
+        {
+          no: 3,
+          name: 'C + 箭头',
+          why: '品牌首字母',
+          chosen: true,
+          note: '字母 C 开口向右，箭头正好从开口里穿出去——「搜完就走」。做成字号大的地方（商店图标、关于页）表现最好。',
+          tags: ['有品牌感', '字标'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <path d="M80 42a28 28 0 1 0 0 44" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+  <path d="M52 64h46m0 0-11-11m11 11-11 11" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`,
+        },
+        {
+          no: 4,
+          name: '跳出方块',
+          why: '「新标签页」的动作',
+          note: '方块 + 向外走的箭头，是「打开新页」最通行的画法，和扩展干的事完全对得上；线多，16px 会比前三个糊一点。',
+          tags: ['语义准', '线条多'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <path d="M74 34H44a10 10 0 0 0-10 10v40a10 10 0 0 0 10 10h40a10 10 0 0 0 10-10V54" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+  <path d="M66 62 94 34m0 0H74m20 0v20" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`,
+        },
+        {
+          no: 5,
+          name: '叠层卡片',
+          why: '分组 + 收纳',
+          note: '三层圆角卡片表示「链接分组」，比九宫格更松弛、更有体积感；深色底上也好看。',
+          tags: ['有体积', '分组'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <rect x="30" y="66" width="68" height="30" rx="9" fill="#fff" fill-opacity=".45"/>
+  <rect x="30" y="50" width="68" height="30" rx="9" fill="#fff" fill-opacity=".72"/>
+  <rect x="30" y="34" width="68" height="30" rx="9" fill="#fff"/>`,
+        },
+        {
+          no: 6,
+          name: '冷星',
+          why: '极简、最现代',
+          note: '四角星 = 「冷（cool）」，副星做点缀。单形状、无细节，是这六个里缩到 16px 最不容易糊的。',
+          tags: ['16px 最稳', '极简'],
+          svg: `<rect width="128" height="128" rx="30" fill="#2b5cf6"/>
+  <path d="M58 26 65.5 56.5 96 64 65.5 71.5 58 102 50.5 71.5 20 64 50.5 56.5Z" fill="#fff"/>
+  <path d="M96 30 98.8 39.2 108 42 98.8 44.8 96 54 93.2 44.8 84 42 93.2 39.2Z" fill="#cfdcff"/>`,
+        },
+      ]
+
+      const svgFor = (icon, size) =>
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="${size}" height="${size}">${icon.svg}</svg>`
+
+      const grid = document.getElementById('grid')
+      let picked = null
+
+      /* 已定稿：3 号。16px 用简化版（只留 C），48/128 用这一版完整图形 */
+      const CHOSEN = 3
+
+      ICONS.forEach((icon) => {
+        const card = document.createElement('div')
+        card.className = 'card'
+        card.dataset.picked = String(icon.no === CHOSEN)
+        card.innerHTML = `
+          <span class="picked-badge">已选 ${icon.no} 号</span>
+          <div class="head">
+            <span class="no">${icon.no}</span>
+            <span class="name">${icon.name}</span>
+            <span class="why">${icon.why}</span>
+          </div>
+          <div class="row">
+            <div class="pad on-dark">${svgFor(icon, 60)}</div>
+            <div class="pad on-light">${svgFor(icon, 60)}</div>
+            <div class="pad on-photo">${svgFor(icon, 56)}</div>
+          </div>
+          <div class="strip">
+            ${[48, 32, 24, 16]
+              .map(
+                (size) =>
+                  `<figure>${svgFor(icon, size)}<figcaption>${size}px</figcaption></figure>`,
+              )
+              .join('')}
+          </div>
+          <p class="meta">${icon.note}</p>
+          ${icon.tags.map((tag) => `<span class="tag">${tag}</span>`).join('')}
+          <details>
+            <summary>看 SVG 源码</summary>
+            <textarea readonly>${svgFor(icon, 128).replace(/</g, '&lt;')}</textarea>
+          </details>
+        `
+        card.addEventListener('click', (event) => {
+          if (event.target.closest('details')) return
+          document.querySelectorAll('.card').forEach((el) => (el.dataset.picked = 'false'))
+          card.dataset.picked = 'true'
+          picked = icon
+          document.getElementById('picked').textContent = `${icon.no} 号 · ${icon.name}`
+        })
+        grid.append(card)
+      })
+    </script>
+  </body>
+</html>
