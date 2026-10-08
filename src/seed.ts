@@ -3,11 +3,9 @@ import type { NavData, NavSettings } from './types'
 export const DEFAULT_SETTINGS: NavSettings = {
   engineId: 'bing',
   theme: 'system',
-  /** 手动指定的天气城市；留空则用定位 */
-  city: '',
   showSidePanel: true,
   historyEnabled: true,
-  background: { preset: 'bing', url: '', rotate: 'newtab' },
+  background: { preset: 'none', url: '' },
 }
 
 /**

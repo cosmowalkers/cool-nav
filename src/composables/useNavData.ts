@@ -21,10 +21,13 @@ export const searchHistory = ref<string[]>([])
 export const editing = ref(false)
 export const storageError = ref('')
 export const toast = ref('')
+/** 底部那条「已删除… · 撤销」，只有一个槽位，后来的顶掉前一个 */
+export const undoState = ref<{ text: string; run: () => void } | null>(null)
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let retryTimer: ReturnType<typeof setTimeout> | undefined
 let toastTimer: ReturnType<typeof setTimeout> | undefined
+let undoTimer: ReturnType<typeof setTimeout> | undefined
 /** 最近一次落盘的内容：一样就不再写，省 sync 的写入配额 */
 let lastSaved = ''
 /** 本地有改动还没写成功，这期间不采纳别处的数据，免得两边互相覆盖 */
@@ -35,6 +38,26 @@ export function showToast(message: string): void {
   toast.value = message
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toast.value = ''), 3200)
+}
+
+/**
+ * 删除不弹确认框（编辑态一天点十几下，每次都问很烦），改成给一次后悔的机会。
+ * 撤销的时限留得比 toast 长一点：这里要留出「意识到删错了」的反应时间。
+ */
+const UNDO_MS = 6000
+
+function offerUndo(text: string, run: () => void): void {
+  clearTimeout(undoTimer)
+  undoState.value = { text, run }
+  undoTimer = setTimeout(() => (undoState.value = null), UNDO_MS)
+}
+
+export function runUndo(): void {
+  const pending = undoState.value
+  if (!pending) return
+  clearTimeout(undoTimer)
+  undoState.value = null
+  pending.run()
 }
 
 function snapshot(): NavData {
@@ -82,31 +105,19 @@ function normalizeLink(raw: unknown): NavLink | null {
 function normalizeSettings(raw: unknown): NavSettings {
   const source = isRecord(raw) ? raw : {}
   const background = isRecord(source.background) ? source.background : {}
-  /* 背景收敛成「每日一图 + 自定义图片 + 纯色」之后的老数据映射：
-     自己打包的那几种图（随机风景 / 星空 / 按引擎）落回每日一图，渐变色和本机图库落回纯色 */
-  const PRESET_MIGRATION: Record<string, string> = {
-    scene: 'bing',
-    starry: 'bing',
-    engine: 'bing',
-    aurora: 'none',
-    dawn: 'none',
-    ink: 'none',
-    local: 'none',
-  }
+  /* 背景只剩「纯色 + 自定义图片」：每日一图等历史值一律迁到纯色 */
   const stored = text(background.preset, DEFAULT_SETTINGS.background.preset)
-  const preset = PRESET_MIGRATION[stored] ?? stored
+  const preset = stored === 'image' ? 'image' : 'none'
   /* 引擎删掉百度 / 掘金 / npm 之后，老数据里这几个 id 落回默认引擎 */
   const engineId = text(source.engineId, DEFAULT_SETTINGS.engineId)
   return {
     engineId: ENGINES.some((item) => item.id === engineId) ? engineId : DEFAULT_SETTINGS.engineId,
     theme: themeMode(source.theme),
-    city: text(source.city, DEFAULT_SETTINGS.city),
     showSidePanel: flag(source.showSidePanel, DEFAULT_SETTINGS.showSidePanel),
     historyEnabled: flag(source.historyEnabled, DEFAULT_SETTINGS.historyEnabled),
     background: {
       preset,
       url: text(background.url, DEFAULT_SETTINGS.background.url),
-      rotate: text(background.rotate, DEFAULT_SETTINGS.background.rotate),
     },
   }
 }
@@ -285,7 +296,26 @@ export function removeLink(groupId: string, linkId: string): void {
   const group = findGroup(groupId)
   if (!group) return
   const index = group.links.findIndex((link) => link.id === linkId)
-  if (index >= 0) group.links.splice(index, 1)
+  if (index < 0) return
+  const [removed] = group.links.splice(index, 1)
+  offerUndo(`已删除「${removed.title}」`, () => {
+    const target = findGroup(groupId)
+    /* 撤销时按原位插回去；原组已经没了就放弃 */
+    if (target) target.links.splice(Math.min(index, target.links.length), 0, removed)
+  })
+}
+
+/** 键盘排序：把一条链接在组内左移 / 右移一位，移动成功返回 true */
+export function moveLink(groupId: string, linkId: string, direction: -1 | 1): boolean {
+  const group = findGroup(groupId)
+  if (!group) return false
+  const index = group.links.findIndex((link) => link.id === linkId)
+  if (index < 0) return false
+  const target = index + direction
+  if (target < 0 || target >= group.links.length) return false
+  const [moved] = group.links.splice(index, 1)
+  group.links.splice(target, 0, moved)
+  return true
 }
 
 export function replaceAll(next: NavData): void {

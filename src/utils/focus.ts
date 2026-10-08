@@ -23,6 +23,22 @@ export function focusSearchBox(): boolean {
   return Boolean(input)
 }
 
+/** 跳到第 N 个分组的第一条链接（组 id 由调用方按索引取） */
+export function focusGroup(groupId: string): boolean {
+  const target = document.querySelector<HTMLElement>(
+    `${LINK_SELECTOR}[data-group="${groupId}"]`,
+  )
+  target?.focus()
+  return Boolean(target)
+}
+
+/** 按 id 重新聚焦某条链接（排序等 DOM 变化之后用） */
+export function focusLink(linkId: string): boolean {
+  const target = document.querySelector<HTMLElement>(`${LINK_SELECTOR}[data-id="${linkId}"]`)
+  target?.focus()
+  return Boolean(target)
+}
+
 export function moveTileFocus(from: HTMLElement, direction: Direction): boolean {
   const box = from.getBoundingClientRect()
   const cx = box.left + box.width / 2

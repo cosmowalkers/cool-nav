@@ -1,11 +1,9 @@
 import { computed, ref } from 'vue'
 import { storage } from '../storage'
-import type { Almanac } from '../utils/almanac'
 import { festivalOf } from '../utils/festival'
 import { fetchHolidayYear, nextHoliday, statusOf, type HolidayTable } from '../utils/holiday'
 import { dateKey, lunarOf, shiftDays } from '../utils/lunar'
-import { fetchWeather, geocode, ipPlace, type Place, type Weather } from '../utils/weather'
-import { nav } from './useNavData'
+import { fetchWeather, ipPlace, type Place, type Weather } from '../utils/weather'
 
 const WEATHER_KEY = 'weather'
 const HOLIDAY_TTL = 7 * 86_400_000
@@ -14,33 +12,17 @@ const TICK = 60_000
 
 const holidayKey = (year: number): string => `holiday:${year}`
 
-/** 位置怎么来的：IP 反查，或者用户手填的城市 */
-export type PlaceSource = 'ip' | 'city'
-
 export const weather = ref<Weather | null>(null)
 /** 正在取数，界面用它禁用按钮 */
 export const geoBusy = ref(false)
 /** 取不到天气的原因，直接在右栏显示出来 */
 export const geoNote = ref('')
-/** 这次用的位置是 IP 猜的还是手填的，界面据此标注 */
-export const placeSource = ref<PlaceSource>('ip')
 
-/** 手填了城市就按城市查；没填就按出口 IP 查 —— 只有这两条路，不碰浏览器定位 */
+/** 位置只有一条路：按出口 IP 反查，不申请定位权限 */
 async function resolvePlace(): Promise<Place> {
-  const city = nav.settings.city.trim()
-  if (city) {
-    placeSource.value = 'city'
-    const hit = await geocode(city)
-    if (!hit) throw new Error(`没找到城市「${city}」，换个写法试试`)
-    return hit
-  }
-  placeSource.value = 'ip'
   return ipPlace()
 }
 export const holidayReady = ref(false)
-/** 黄历要算建除十二神和宜忌表，包不小，等挂载完再单独加载 */
-const almanac = ref<Almanac | null>(null)
-let almanacDay = ''
 
 const years = ref<HolidayTable[]>([])
 const now = ref(new Date())
@@ -62,21 +44,8 @@ export const today = computed(() => {
     status: statusOf(date, table),
     next: nextHoliday(date, table),
     festival: festivalOf(date, lunar, lunarOf(shiftDays(date, 1))),
-    almanac: almanac.value,
   }
 })
-
-async function loadAlmanac(): Promise<void> {
-  const key = dateKey(now.value)
-  if (almanacDay === key) return
-  try {
-    const { almanacOf } = await import('../utils/almanac')
-    almanac.value = almanacOf(now.value)
-    almanacDay = key
-  } catch (error) {
-    console.warn('[cool-nav] 黄历算不出来', error)
-  }
-}
 
 function remember(table: HolidayTable): void {
   const index = years.value.findIndex((item) => item.year === table.year)
@@ -118,8 +87,8 @@ async function loadWeather(force = false): Promise<void> {
   geoBusy.value = true
   geoNote.value = ''
   try {
-    /* 到点自动刷新时沿用上次解析出来的地方，省一次请求；
-       用户改城市时（force）必须重新解析，不然错的那个会一直错下去 */
+  /* 到点自动刷新时沿用上次解析出来的地方，省一次请求；
+     手动刷新时（force）重新按 IP 解析 */
     const place = !force && cached?.place ? cached.place : await resolvePlace()
     const data = await fetchWeather(place)
     weather.value = data
@@ -134,21 +103,18 @@ async function loadWeather(force = false): Promise<void> {
   }
 }
 
-/** 手动指定城市（传空串＝改回按 IP 猜） */
-export async function setCity(city: string): Promise<void> {
-  nav.settings.city = city.trim()
+/** 手动刷新天气：绕过缓存、重新按当前规则解析位置再拉数据 */
+export async function refreshWeather(): Promise<void> {
   await loadWeather(true)
 }
 
 export async function initDayInfo(): Promise<void> {
   await loadHoliday()
-  await loadAlmanac()
   await loadWeather()
 
   if (timer) return
   timer = window.setInterval(() => {
     now.value = new Date()
-    void loadAlmanac()
     if (weatherAt && Date.now() - weatherAt > WEATHER_TTL) void loadWeather(true)
   }, TICK)
 }

@@ -2,7 +2,7 @@
  * 可选 host 权限的按需申请。
  *
  * manifest 里只声明 `optional_host_permissions`，装的时候不弹「读取所有网站数据」，
- * 真正要抓网页标题 / 拉每日一图的那一刻才就那一个域名问一次。
+ * 真正要抓网页标题的那一刻才就那一个域名问一次。
  * 网页版（npm run dev）没有 chrome.permissions，一律当作「没有」，调用方自己兜底。
  */
 

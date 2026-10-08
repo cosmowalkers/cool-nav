@@ -1,43 +1,68 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import SearchBar from './components/SearchBar.vue'
-import GroupNav from './components/GroupNav.vue'
 import LinkSections from './components/LinkSections.vue'
 import SidePanel from './components/SidePanel.vue'
 import LinkDialog from './components/LinkDialog.vue'
-import EditBar from './components/EditBar.vue'
+import HelpOverlay from './components/HelpOverlay.vue'
+import NotesPanel from './components/NotesPanel.vue'
 import type { NavGroup, NavLink } from './types'
-import {
-  allowBing,
-  bingNeedsPermission,
-  heroTone,
-  imageCredit,
-  photoUrl,
-  wallpaperError,
-} from './composables/useWallpaper'
 import { isDark, toggleTheme } from './composables/useTheme'
-import { LINK_SELECTOR, focusSearchBox, moveTileFocus, type Direction } from './utils/focus'
+import { helpOpen, notesOpen } from './composables/useUiState'
+import {
+  LINK_SELECTOR,
+  focusGroup,
+  focusLink,
+  focusSearchBox,
+  focusTile,
+  moveTileFocus,
+  type Direction,
+} from './utils/focus'
 import {
   addGroup,
   addLink,
   editing,
-  exportJson,
+  moveLink,
   nav,
-  parseImport,
   removeGroup,
   removeLink,
   renameGroup,
-  replaceAll,
-  showToast,
+  runUndo,
   storageError,
   toast,
+  undoState,
   updateLink,
 } from './composables/useNavData'
 
 const dialogOpen = ref(false)
 const dialogGroupId = ref('')
 const dialogLink = ref<NavLink | null>(null)
-const fileInput = ref<HTMLInputElement | null>(null)
+/** 打开弹窗时焦点在哪，关掉后还回哪去（键盘流的闭环） */
+let dialogFocusSource: HTMLElement | null = null
+
+watch(dialogOpen, (open) => {
+  if (open) {
+    dialogFocusSource =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+  } else if (dialogFocusSource) {
+    const source = dialogFocusSource
+    dialogFocusSource = null
+    /* 链接删了之类的情况下元素可能已经不在 DOM 里，不在就不硬来 */
+    void nextTick(() => {
+      if (source.isConnected) source.focus()
+    })
+  }
+})
+
+/* 进编辑态时保证焦点在链接上：方向键 / N / Delete 才能立刻用，不然箭头会滚页面 */
+watch(editing, (on) => {
+  if (!on) return
+  void nextTick(() => {
+    const active = document.activeElement
+    const alreadyOnTile = active instanceof HTMLElement && Boolean(active.closest(LINK_SELECTOR))
+    if (!alreadyOnTile) focusTile()
+  })
+})
 
 const TILE_KEYS: Record<string, Direction> = {
   ArrowLeft: 'left',
@@ -46,8 +71,9 @@ const TILE_KEYS: Record<string, Direction> = {
   ArrowDown: 'down',
 }
 
-const photoStyle = computed(() =>
-  photoUrl.value ? { backgroundImage: `url("${photoUrl.value}")` } : {},
+/** hero 只在「自定义图片」时铺图，其余一律纯色 */
+const photoUrl = computed(() =>
+  nav.settings.background.preset === 'image' ? nav.settings.background.url : '',
 )
 
 function openAddLink(groupId: string): void {
@@ -60,6 +86,16 @@ function openEditLink(groupId: string, link: NavLink): void {
   dialogGroupId.value = groupId
   dialogLink.value = link
   dialogOpen.value = true
+}
+
+/** 命令面板「新建链接」：加到第一个分组，没有分组就先建一个 */
+function onCommandNewLink(): void {
+  let groupId = nav.groups[0]?.id
+  if (!groupId) {
+    addGroup('常用')
+    groupId = nav.groups[0]?.id ?? ''
+  }
+  if (groupId) openAddLink(groupId)
 }
 
 function onDialogSave(payload: { title: string; url: string; icon?: string }): void {
@@ -80,42 +116,118 @@ function onRemoveGroup(groupId: string): void {
   }
 }
 
-function onImportClick(): void {
-  fileInput.value?.click()
-}
-
-async function onFileChange(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    const next = parseImport(await file.text())
-    const linkCount = next.groups.reduce((sum, group) => sum + group.links.length, 0)
-    const ok = window.confirm(
-      `导入会覆盖当前数据（${next.groups.length} 个分组 / ${linkCount} 条链接），继续？`,
-    )
-    if (ok) {
-      replaceAll(next)
-      showToast('导入成功')
-    }
-  } catch (error) {
-    showToast(`导入失败：${(error as Error).message}`)
-  } finally {
-    input.value = ''
-  }
+/** 跳到第 N 个分组的第一条链接（1 开头） */
+function jumpToGroup(n: number): boolean {
+  const group = nav.groups[n - 1]
+  return group ? focusGroup(group.id) : false
 }
 
 function onKeydown(event: KeyboardEvent): void {
   const element = event.target instanceof Element ? event.target : null
   const tile = element?.closest<HTMLElement>(LINK_SELECTOR) ?? null
+  const typing = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
 
-  /* 焦点在链接卡片上时，方向键按视觉位置走，Enter 交给 <a> 自己打开 */
-  if (tile && !event.metaKey && !event.ctrlKey && !event.altKey) {
-    const direction = TILE_KEYS[event.key]
-    if (direction && moveTileFocus(tile, direction)) {
+  /* 弹窗开着时，除了 Esc 不响应任何页面级快捷键 */
+  if (dialogOpen.value && event.key !== 'Escape') return
+
+  /* 念念不忘开着时，除了 Esc 不响应任何页面级快捷键 */
+  if (notesOpen.value) {
+    if (event.key === 'Escape') {
       event.preventDefault()
+      notesOpen.value = false
+    }
+    return
+  }
+
+  /* 帮助层开着时，只响应 Esc / ?（把它关掉） */
+  if (helpOpen.value) {
+    if (event.key === 'Escape' || event.key === '?') {
+      event.preventDefault()
+      helpOpen.value = false
+    }
+    return
+  }
+
+  /* `?` 快捷键帮助：输入框里就是普通字符，不拦 */
+  if (!typing && event.key === '?') {
+    event.preventDefault()
+    helpOpen.value = !helpOpen.value
+    return
+  }
+
+  /* M：记一条念念不忘（输入框里就是普通字符，不拦） */
+  if (!typing && event.key.toLowerCase() === 'm' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    event.preventDefault()
+    notesOpen.value = true
+    return
+  }
+
+  if (tile) {
+    const plain = !event.metaKey && !event.ctrlKey && !event.altKey
+
+    if (plain) {
+      /* 方向键按视觉位置走，Enter 交给 <a> 自己打开 */
+      const direction = TILE_KEYS[event.key]
+      if (direction && moveTileFocus(tile, direction)) {
+        event.preventDefault()
+        return
+      }
+      /* 焦点已经在链接区时，数字键没有输入语义，直接当跳组用 */
+      if (/^[1-9]$/.test(event.key)) {
+        event.preventDefault()
+        if (jumpToGroup(Number(event.key))) return
+      }
+      if (editing.value) {
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault()
+          const groupId = tile.dataset.group
+          const linkId = tile.dataset.id
+          if (groupId && linkId) removeLink(groupId, linkId)
+          return
+        }
+      }
+    }
+
+    /* ⌘/Ctrl+↑↓ 跳首尾（Mac 没有 Home/End，用这套；Fn+Home/End 也仍兼容） */
+    if ((event.metaKey || event.ctrlKey) && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault()
+      focusTile(event.key === 'ArrowDown' ? 'last' : 'first')
       return
     }
+
+    /* 编辑态：⌘/Ctrl+←→ 在当前分组内移动排序，移动完把焦点跟过去 */
+    if (
+      editing.value &&
+      (event.metaKey || event.ctrlKey) &&
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    ) {
+      event.preventDefault()
+      const groupId = tile.dataset.group
+      const linkId = tile.dataset.id
+      if (
+        groupId &&
+        linkId &&
+        moveLink(groupId, linkId, event.key === 'ArrowLeft' ? -1 : 1)
+      ) {
+        void nextTick(() => focusLink(linkId))
+      }
+      return
+    }
+  }
+
+  /* 编辑态 N：新建链接——有焦点链接用它的组，否则用第一个组（没有就先建） */
+  if (editing.value && !typing && event.key.toLowerCase() === 'n') {
+    event.preventDefault()
+    const groupId = tile?.dataset.group
+    if (groupId) openAddLink(groupId)
+    else onCommandNewLink()
+    return
+  }
+
+  /* Alt+1~9 全局跳组；浏览器没拦的话，焦点不在链接区也能用 */
+  if (event.altKey && !event.metaKey && !event.ctrlKey && /^[1-9]$/.test(event.key)) {
+    event.preventDefault()
+    if (jumpToGroup(Number(event.key))) return
   }
 
   if (event.key === 'Escape') {
@@ -127,14 +239,13 @@ function onKeydown(event: KeyboardEvent): void {
       editing.value = false
       return
     }
-    /* 从链接一路按 Esc 就回到搜索框 */
     if (tile) focusSearchBox()
     return
   }
   if (event.key.toLowerCase() !== 'e') return
   if (event.metaKey || event.ctrlKey || event.altKey) return
   if (dialogOpen.value) return
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) return
+  if (typing) return
   event.preventDefault()
   editing.value = !editing.value
 }
@@ -145,43 +256,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="page min-h-full">
-    <!-- 顶图只包住搜索框，下面整片是纯色，所以不需要任何蒙层 -->
-    <header
-      class="hero relative z-20 h-[clamp(200px,26vh,276px)]"
-      :style="{ '--hero-tone': heroTone }"
-    >
-      <div class="absolute inset-0 overflow-hidden">
-        <Transition name="wall">
-          <div v-if="photoUrl" :key="photoUrl" class="wall hero-photo" :style="photoStyle"></div>
-        </Transition>
-      </div>
+    <header class="relative z-20 h-[clamp(96px,15vh,128px)]">
+      <div v-if="photoUrl" class="hero-photo" :style="{ backgroundImage: `url('${photoUrl}')` }"></div>
       <div class="relative mx-auto flex h-full w-full max-w-[1400px] items-center justify-center px-4">
-        <SearchBar />
-      </div>
-
-      <!-- 每日一图要先问过用户：没给权限就一直是纯色底，这里是唯一的入口 -->
-      <div
-        v-if="bingNeedsPermission && nav.settings.background.preset === 'bing'"
-        class="absolute inset-x-0 bottom-3.5 z-30 flex justify-center"
-      >
-        <button
-          data-glass
-          class="cursor-pointer rounded-lg px-3 py-[5px] text-[12px] text-dim transition-colors hover:text-ink"
-          title="只申请 bing.com 一个域名的访问权限"
-          @click="allowBing()"
-        >
-          每日一图需要读 bing.com 的权限 · 点这里允许
-        </button>
+        <SearchBar @new-link="onCommandNewLink" />
       </div>
     </header>
 
     <div
-      class="relative z-10 mx-auto grid w-full max-w-[1400px] gap-3 px-4 pt-3 pb-20 lg:grid-cols-[160px_minmax(0,1fr)] xl:grid-cols-[160px_minmax(0,1fr)_270px]"
+      class="relative z-10 mx-auto grid w-full max-w-[1400px] gap-3 px-4 pt-3 pb-20 xl:grid-cols-[minmax(0,1fr)_270px]"
     >
-      <!-- 这里只管显隐：传 lg:block 会把组件自己的 flex 覆盖掉（同为单类名，后写的胜），
-           于是 flex-col 失效、分组按钮缩成文字宽，点击热区只剩几个字 -->
-      <GroupNav v-if="nav.groups.length" class="hidden self-start lg:flex" />
-
       <main class="min-w-0">
         <LinkSections
           :editing="editing"
@@ -190,25 +274,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           @remove-link="(groupId: string, link: NavLink) => removeLink(groupId, link.id)"
           @rename-group="(groupId: string, name: string) => renameGroup(groupId, name)"
           @remove-group="onRemoveGroup"
+          @add-group="addGroup()"
         />
       </main>
 
-      <SidePanel class="hidden self-start xl:block" />
+      <SidePanel v-if="nav.settings.showSidePanel" class="hidden self-start xl:block" />
     </div>
-
-    <p
-      v-if="imageCredit"
-      class="pointer-events-none fixed right-5 bottom-3 z-30 m-0 max-w-[52ch] truncate text-[10.5px] text-faint"
-    >
-      {{ imageCredit }}
-    </p>
-
-    <EditBar
-      v-if="editing"
-      @add-group="addGroup()"
-      @export-data="exportJson()"
-      @import-data="onImportClick"
-    />
 
     <div class="fixed top-4 right-5 z-40 flex items-center gap-1.5">
       <button
@@ -261,14 +332,30 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       @close="dialogOpen = false"
     />
 
-    <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="onFileChange" />
+    <HelpOverlay />
+    <NotesPanel :open="notesOpen" @close="notesOpen = false" />
 
-    <div
-      v-if="storageError || toast || wallpaperError"
-      class="fixed bottom-7 left-1/2 z-[60] max-w-[520px] -translate-x-1/2 rounded-[10px] border bg-surface px-4 py-2.5 text-[12.5px] text-ink shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
-      :class="storageError || wallpaperError ? 'border-[#f79009]/40 text-[#b54708]' : 'border-line'"
-    >
-      {{ storageError || toast || wallpaperError }}
+    <div class="fixed bottom-7 left-1/2 z-[60] flex w-full max-w-[520px] -translate-x-1/2 flex-col items-center gap-2 px-4">
+      <div
+        v-if="undoState"
+        class="flex items-center gap-3 rounded-[10px] border border-line bg-surface py-2 pr-2 pl-4 text-[12.5px] text-ink shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
+      >
+        <span>{{ undoState.text }}</span>
+        <button
+          class="flex-none cursor-pointer rounded-md px-2 py-1 text-[12.5px] font-medium text-accent hover:bg-hover"
+          @click="runUndo()"
+        >
+          撤销
+        </button>
+      </div>
+
+      <div
+        v-if="storageError || toast"
+        class="rounded-[10px] border bg-surface px-4 py-2.5 text-[12.5px] text-ink shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
+        :class="storageError ? 'border-[#f79009]/40 text-[#b54708]' : 'border-line'"
+      >
+        {{ storageError || toast }}
+      </div>
     </div>
   </div>
 </template>

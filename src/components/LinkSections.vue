@@ -13,19 +13,14 @@ const emit = defineEmits<{
   removeLink: [string, NavLink]
   renameGroup: [string, string]
   removeGroup: [string]
+  addGroup: []
 }>()
 </script>
 
 <template>
-  <div class="rise rounded-lg bg-surface px-4 pt-1 pb-2">
-    <section
-      v-for="(group, index) in nav.groups"
-      :id="`group-${group.id}`"
-      :key="group.id"
-      class="scroll-mt-3 border-b border-line py-4 last:border-b-0"
-      :style="{ '--d': `${120 + index * 50}ms` }"
-    >
-      <div class="mb-3 flex h-[26px] items-center justify-between">
+  <div class="rise min-w-0">
+    <section v-for="group in nav.groups" :key="group.id" class="mb-4">
+      <div class="mb-2 flex h-[26px] items-center justify-between">
         <div class="flex min-w-0 items-center gap-2">
           <input
             v-if="editing"
@@ -54,12 +49,12 @@ const emit = defineEmits<{
           </button>
         </div>
 
-        <span class="flex-none text-[14px] text-dim">{{ group.links.length }} 个</span>
+        <span class="flex-none text-[14px] text-faint">{{ group.links.length }} 个</span>
       </div>
 
       <VueDraggable
         v-model="group.links"
-        class="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]"
+        class="grid gap-1 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]"
         group="links"
         :animation="150"
         :disabled="!editing"
@@ -72,16 +67,20 @@ const emit = defineEmits<{
           :key="link.id"
           :link="link"
           :editing="editing"
+          :group-id="group.id"
           @edit="emit('editLink', group.id, link)"
           @remove="emit('removeLink', group.id, link)"
         />
         <button
           v-if="editing"
-          class="no-drag flex cursor-pointer items-center gap-2.5 rounded-md border border-dashed border-line px-[15px] py-[14px] text-[14px] text-faint hover:border-faint hover:text-dim"
+          class="no-drag flex cursor-pointer items-center rounded-md px-2.5 py-2 text-[14px] text-faint hover:bg-hover hover:text-dim"
+          :aria-label="`在「${group.name}」里添加链接`"
           @click="emit('addLink', group.id)"
         >
-          <span class="grid h-[26px] w-[26px] flex-none place-items-center rounded border border-dashed border-line">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <span
+            class="mr-2.5 grid h-[18px] w-[18px] flex-none place-items-center rounded-[4px] border border-dashed border-faint/60"
+          >
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
               <path d="M12 5v14" />
               <path d="M5 12h14" />
             </svg>
@@ -90,8 +89,20 @@ const emit = defineEmits<{
         </button>
       </VueDraggable>
 
-      <p v-if="!editing && !group.links.length" class="m-0 text-[14px] text-faint">空分组</p>
+      <p v-if="!editing && !group.links.length" class="m-0 py-1 text-[14px] text-faint">空分组</p>
     </section>
+
+    <button
+      v-if="editing"
+      class="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-faint/50 px-3 py-2 text-[14px] text-faint hover:border-faint hover:text-dim"
+      @click="emit('addGroup')"
+    >
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+      新建分组
+    </button>
 
     <p v-if="!nav.groups.length" class="m-0 py-4 text-[14px] text-faint">
       还没有分组，按 E 进入编辑模式新建

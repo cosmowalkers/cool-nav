@@ -119,7 +119,7 @@ function save(): void {
           spellcheck="false"
           @blur="autoTitle"
           @keydown.enter.prevent="onEnterUrl"
-          @keydown.esc="emit('close')"
+          @keydown.esc.stop="emit('close')"
         />
       </label>
 
@@ -142,7 +142,7 @@ function save(): void {
           autocomplete="off"
           @input="titleTouched = true"
           @keydown.enter.prevent="save"
-          @keydown.esc="emit('close')"
+          @keydown.esc.stop="emit('close')"
         />
       </label>
 
@@ -157,7 +157,7 @@ function save(): void {
           autocomplete="off"
           spellcheck="false"
           @keydown.enter.prevent="save"
-          @keydown.esc="emit('close')"
+          @keydown.esc.stop="emit('close')"
         />
       </label>
 

@@ -11,13 +11,14 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "lunar-javascript": "^1.7.7",
+    "qrcode": "^1.5.4",
     "vue": "^3.5.43",
     "vue-draggable-plus": "^0.6.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@types/chrome": "^0.3.0",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-vue": "^6.0.9",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.8.3",

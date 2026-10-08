@@ -59,7 +59,7 @@ export interface Place {
   name: string
   lat: number
   lon: number
-  /** 区县，IP 反查和地理编码都可能有、也可能没有 */
+  /** 区县，IP 反查可能给、也可能只给到市 */
   district?: string
 }
 
@@ -78,7 +78,7 @@ interface ReverseResponse {
  * 会退回 Google 的定位服务，而这个服务在国内不可达，于是报 POSITION_UNAVAILABLE（错误码 2）。
  * 也就是说这套 API 在国内本来就时好时坏，还要用户去系统设置里放权、还多一个权限项。
  * BigDataCloud 不带坐标时按调用方 IP 反查：同一个域名、免 key、国内可达，
- * 城市级精度对天气足够。想要更准就手填城市，那条路一直留着。
+ * 城市级精度对天气足够；接口顺带返回 locality（区县）时就显示到区县。
  */
 export async function ipPlace(timeoutMs = 8000): Promise<Place> {
   const url = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client')
@@ -92,7 +92,7 @@ export async function ipPlace(timeoutMs = 8000): Promise<Place> {
     const data = (await response.json()) as ReverseResponse
     const name = data.city || data.principalSubdivision
     if (!name || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
-      throw new Error('按 IP 也拿不到城市，手动填一个吧')
+      throw new Error('按 IP 也拿不到城市，等会儿再试')
     }
     return {
       name,
@@ -102,53 +102,6 @@ export async function ipPlace(timeoutMs = 8000): Promise<Place> {
     }
   } finally {
     clearTimeout(timer)
-  }
-}
-
-interface GeoHit {
-  name?: string
-  latitude?: number
-  longitude?: number
-  admin1?: string
-  country_code?: string
-}
-
-async function geocodeOnce(name: string, timeoutMs: number): Promise<GeoHit[]> {
-  const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
-  url.searchParams.set('name', name)
-  url.searchParams.set('count', '5')
-  url.searchParams.set('language', 'zh')
-  url.searchParams.set('format', 'json')
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  const response = await fetch(url, { credentials: 'omit', signal: controller.signal }).finally(() =>
-    clearTimeout(timer),
-  )
-  if (!response.ok) throw new Error(`地理编码 HTTP ${response.status}`)
-  const data = (await response.json()) as { results?: GeoHit[] }
-  return data.results ?? []
-}
-
-/**
- * 城市名 → 经纬度。
- * 两个坑：Open-Meteo 只认「天津」不认「天津市」（区县名干脆没有），而「上海市」还会匹配到
- * 美国伊利诺伊州那个同名小城。所以先原样查、查不到再去掉行政区后缀重查，
- * 中文输入时优先中国的结果。
- */
-export async function geocode(city: string, timeoutMs = 8000): Promise<Place | null> {
-  const raw = city.trim()
-  let hits = await geocodeOnce(raw, timeoutMs)
-  if (!hits.length) {
-    const stripped = raw.replace(/(特别行政区|自治区|自治州|地区|市|省|区|县|镇)$/u, '')
-    if (stripped && stripped !== raw) hits = await geocodeOnce(stripped, timeoutMs)
-  }
-  const cjk = /[\u4e00-\u9fa5]/.test(raw)
-  const hit = (cjk ? hits.find((item) => item.country_code === 'CN') : undefined) ?? hits[0]
-  if (hit?.latitude === undefined || hit.longitude === undefined) return null
-  return {
-    name: hit.admin1 && hit.admin1 !== hit.name ? `${hit.name}·${hit.admin1}` : (hit.name ?? raw),
-    lat: hit.latitude,
-    lon: hit.longitude,
   }
 }
 

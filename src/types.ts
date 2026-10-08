@@ -19,23 +19,19 @@ export interface NavSettings {
   engineId: string
   /** 亮暗色 */
   theme: ThemeMode
-  /** 手动指定的天气城市；留空则用定位 */
-  city: string
-  /** 右侧信息栏：时间、农历、天气、假期、黄历 */
+  /** 右侧信息栏：时间、农历、天气、假期 */
   showSidePanel: boolean
   historyEnabled: boolean
   background: NavBackground
 }
 
 /**
- * preset 取值：'bing'（每日一图，默认）| 'image'（自己填的图片链接）| 'none'（纯色兜底）
- *            | 'local'（本机图库） | 'bing'（每日一图）
+ * preset 取值：'none'（纯色，默认）| 'image'（自己填的图片链接）。
+ * 旧数据里的 'bing' 等历史值在读入时统一迁到 'none'。
  */
 export interface NavBackground {
   preset: string
   url: string
-  /** 轮换节奏：newtab | hour | day | never */
-  rotate: string
 }
 
 export interface NavData {

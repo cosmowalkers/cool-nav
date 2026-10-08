@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cool Nav",
   "version": "0.1.0",
-  "description": "极简新标签页：多引擎搜索 + 分组网址导航 + 天气黄历。数据只存本地，不收集任何信息。",
+  "description": "极简新标签页：多引擎搜索 + 分组网址导航 + 天气。数据只存本地，不收集任何信息。",
   "chrome_url_overrides": { "newtab": "index.html" },
   "permissions": ["storage", "favicon"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
