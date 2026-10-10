@@ -104,10 +104,6 @@ function normalizeLink(raw: unknown): NavLink | null {
 
 function normalizeSettings(raw: unknown): NavSettings {
   const source = isRecord(raw) ? raw : {}
-  const background = isRecord(source.background) ? source.background : {}
-  /* 背景只剩「纯色 + 自定义图片」：每日一图等历史值一律迁到纯色 */
-  const stored = text(background.preset, DEFAULT_SETTINGS.background.preset)
-  const preset = stored === 'image' ? 'image' : 'none'
   /* 引擎删掉百度 / 掘金 / npm 之后，老数据里这几个 id 落回默认引擎 */
   const engineId = text(source.engineId, DEFAULT_SETTINGS.engineId)
   return {
@@ -115,10 +111,6 @@ function normalizeSettings(raw: unknown): NavSettings {
     theme: themeMode(source.theme),
     showSidePanel: flag(source.showSidePanel, DEFAULT_SETTINGS.showSidePanel),
     historyEnabled: flag(source.historyEnabled, DEFAULT_SETTINGS.historyEnabled),
-    background: {
-      preset,
-      url: text(background.url, DEFAULT_SETTINGS.background.url),
-    },
   }
 }
 

@@ -71,10 +71,8 @@ const TILE_KEYS: Record<string, Direction> = {
   ArrowDown: 'down',
 }
 
-/** hero 只在「自定义图片」时铺图，其余一律纯色 */
-const photoUrl = computed(() =>
-  nav.settings.background.preset === 'image' ? nav.settings.background.url : '',
-)
+/** 顶部搜索栏底色随搜索引擎切换（配色在 styles.css 里按 data-engine 定义） */
+const engineId = computed(() => nav.settings.engineId)
 
 function openAddLink(groupId: string): void {
   dialogGroupId.value = groupId
@@ -256,15 +254,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="page min-h-full">
-    <header class="relative z-20 h-[clamp(96px,15vh,128px)]">
-      <div v-if="photoUrl" class="hero-photo" :style="{ backgroundImage: `url('${photoUrl}')` }"></div>
+    <header class="relative z-20 h-[clamp(104px,16vh,144px)]" :data-engine="engineId">
+      <div class="hero-photo" aria-hidden="true"></div>
       <div class="relative mx-auto flex h-full w-full max-w-[1400px] items-center justify-center px-4">
         <SearchBar @new-link="onCommandNewLink" />
       </div>
     </header>
 
     <div
-      class="relative z-10 mx-auto grid w-full max-w-[1400px] gap-3 px-4 pt-3 pb-20 xl:grid-cols-[minmax(0,1fr)_270px]"
+      class="relative z-10 mx-auto grid w-full max-w-[1400px] gap-3 px-4 pt-5 pb-20 xl:grid-cols-[minmax(0,1fr)_270px]"
     >
       <main class="min-w-0">
         <LinkSections

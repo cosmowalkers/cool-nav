@@ -27,12 +27,6 @@ const THEMES: { id: ThemeMode; name: string }[] = [
   { id: 'dark', name: '深色' },
 ]
 
-/** 只有两种背景：纯色（默认）或自己填的图片链接 */
-const BACKGROUNDS = [
-  { id: 'none', name: '纯色', hint: '不铺图，直接用页面底色' },
-  { id: 'image', name: '自定义图片', hint: '填一个图片地址，只存地址不存图' },
-]
-
 const TABS = [
   { id: 'search', name: '搜索' },
   { id: 'look', name: '外观' },
@@ -46,10 +40,6 @@ const settingsOpen = ref(false)
 const activeKey = ref<string | null>(null)
 const tab = ref('search')
 const fileInput = ref<HTMLInputElement | null>(null)
-
-const background = computed(() => nav.settings.background)
-const imageUrl = ref(background.value.preset === 'image' ? background.value.url : '')
-const imageInput = ref<HTMLInputElement | null>(null)
 
 const emit = defineEmits<{ newLink: [] }>()
 
@@ -328,24 +318,6 @@ function moveActive(delta: number): void {
   })
 }
 
-function pickPreset(id: string): void {
-  background.value.preset = id
-  if (id === 'image') {
-    void nextTick(() => imageInput.value?.focus())
-  }
-}
-
-function applyImageUrl(): void {
-  const url = imageUrl.value.trim()
-  if (!url) {
-    showToast('先粘贴一个图片链接')
-    return
-  }
-  background.value.url = url
-  background.value.preset = 'image'
-  showToast('背景已更新')
-}
-
 function submit(value?: string, newTab = false): void {
   const raw = value ?? query.value
   const resolved = resolveQuery(raw, engine.value.id)
@@ -437,9 +409,9 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 <template>
   <div class="relative mx-auto w-full max-w-[760px]">
     <div
-      class="flex h-[52px] items-center gap-3 rounded-xl border border-line bg-surface pr-3 pl-4 shadow-[0_8px_28px_rgba(16,20,30,0.12)] transition duration-150 focus-within:ring-[3px] focus-within:ring-accent/18"
+      class="search-surface flex h-[58px] items-center gap-3 rounded-[14px] border border-line pr-3 pl-4"
     >
-      <svg class="flex-none text-faint" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <svg class="flex-none text-faint" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </svg>
@@ -447,7 +419,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         ref="inputRef"
         v-model="query"
         data-search-input
-        class="min-w-0 flex-1 border-0 bg-transparent text-[15px] outline-none placeholder:text-faint"
+        class="min-w-0 flex-1 border-0 bg-transparent text-[16px] outline-none placeholder:text-faint"
         type="text"
         placeholder="搜索、直达链接或输入命令"
         autocomplete="off"
@@ -458,7 +430,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         @blur="commandOpen = false"
       />
       <button
-        class="flex flex-none cursor-pointer items-center gap-[3px] rounded-lg px-2 py-1.5 text-[12px] text-dim hover:bg-hover hover:text-ink"
+        class="flex flex-none cursor-pointer items-center gap-[3px] rounded-lg px-2 py-1.5 text-[12.5px] text-dim hover:bg-hover hover:text-ink"
         :title="`默认引擎：${engine.name}`"
         aria-haspopup="true"
         :aria-expanded="settingsOpen"
@@ -591,47 +563,6 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         </div>
 
         <div class="my-[13px] h-px bg-line"></div>
-
-        <div class="mb-[9px] text-[11px] tracking-[0.08em] text-faint">背景</div>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button
-            v-for="item in BACKGROUNDS"
-            :key="item.id"
-            class="cursor-pointer rounded-[9px] border px-1 py-[7px] text-[11.5px]"
-            :class="
-              background.preset === item.id
-                ? 'border-accent/48 bg-accent/10 text-accent'
-                : 'border-line text-dim hover:text-ink'
-            "
-            :title="item.hint"
-            @click="pickPreset(item.id)"
-          >
-            {{ item.name }}
-          </button>
-        </div>
-
-        <div v-if="background.preset === 'image'" class="mt-1.5 flex items-center gap-1.5">
-          <input
-            ref="imageInput"
-            v-model="imageUrl"
-            class="min-w-0 flex-1 rounded-lg border border-line bg-transparent px-2 py-[5px] text-[12px] outline-none placeholder:text-faint focus:border-accent/55"
-            type="text"
-            placeholder="粘贴图片链接"
-            spellcheck="false"
-            @keydown.enter="applyImageUrl"
-          />
-          <button
-            class="flex-none cursor-pointer rounded-lg border border-line px-2 py-[5px] text-[12px] text-dim hover:text-ink"
-            @click="applyImageUrl"
-          >
-            使用
-          </button>
-        </div>
-
-        <p class="mt-2.5 m-0 text-[11px] leading-[1.6] text-faint">
-          <template v-if="background.preset === 'image'">只记这串地址，图片本身不存。</template>
-          <template v-else>不铺图，底色就是页面底色。</template>
-        </p>
 
         <label class="flex cursor-pointer items-center justify-between py-1.5 text-[13px]">
           <span>显示右侧信息栏</span>

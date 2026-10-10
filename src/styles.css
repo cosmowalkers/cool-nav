@@ -18,6 +18,17 @@
   /* 状态色：休息（绿）、补班（橙），亮暗各取自对应主题的 16 色盘 */
   --color-success: light-dark(#3f953a, #16c98d);
   --color-warn: light-dark(#d2b67c, #ffc83f);
+  /* 顶部光区：随搜索引擎切换，亮暗各一套（Bing 蓝 / Google 橘 / GitHub 灰）。
+     一束光一个变量，透明度直接写进颜色里——`light-dark()` 只吃颜色，
+     想用它按亮暗切百分比是行不通的（踩过：整条 background 会直接失效，光一帧都不显示）。
+     浅色底上色面积一大就显脏，所以浅色收着、深色放得开，两套的 alpha 也就不一样。
+     下面这组兜底值和 Bing 一致，万一引擎 id 是没见过的值，光也不会整个塌掉 */
+  --hero-color: light-dark(#6f9bff, #5b86ff);
+  /* 照片的双色调浓度。三套引擎的 alpha 不一样，不是偷懒：同样的浓度下，
+     暖色（橘）看着比冷色（蓝）重得多，而 GitHub 的灰本来就低饱和 */
+  --photo-tint: light-dark(rgb(111 155 255 / 55%), rgb(91 134 255 / 55%));
+  /* 顶部照片在深色下压一层暗：这张是浅雾高调图，不压就直接把深色页面照白了 */
+  --photo-dim: light-dark(transparent, rgba(0, 0, 0, 0.34));
 }
 
 /* 右上角两个固定小按钮：半透明 + 毛玻璃（压在纯色或自定义图上都看得清） */
@@ -82,13 +93,83 @@
   }
 }
 
-/* 顶图：只铺在 hero 那一条，自定义图片直接铺满、无动画 */
+/* ---------- 顶部光区 ----------
+   这里以前铺一整条引擎配色的纯色（Bing 浅蓝 / Google 浅橘 / GitHub 浅灰）。
+   问题不在色号，在形态：一大块平色 + 一条硬切的下边，看着像还没上完色的占位块。
+   现在的做法是把「颜色」换成「光」——引擎色从顶部落下来、往下自然化掉，
+   再在搜索框背后点一团亮；颜色只出现在有明暗关系的地方，和正文之间也就没有边了。 */
+header[data-engine='bing'] {
+  --hero-color: light-dark(#6f9bff, #5b86ff);
+  --photo-tint: light-dark(rgb(111 155 255 / 55%), rgb(91 134 255 / 55%));
+}
+
+header[data-engine='google'] {
+  --hero-color: light-dark(#f9a03f, #ff9f52);
+  --photo-tint: light-dark(rgb(249 160 63 / 30%), rgb(255 159 82 / 40%));
+}
+
+header[data-engine='github'] {
+  --hero-color: light-dark(#8d99ab, #9aa6b8);
+  --photo-tint: light-dark(rgb(141 153 171 / 45%), rgb(154 166 184 / 45%));
+}
+
+/* 顶部照片：铺满顶部那一条，下沿自己化掉——不用蒙版盖正文，所以正文一行都不用让位。
+   图是黑白雾海（Olivier Miche / Unsplash License，见 docs/design.md），选黑白是有意的：
+   单色底子才能用 `background-blend-mode: color` 叠引擎色做双色调——
+   混合只取色相和饱和度、亮度还是照片的，所以切换搜索引擎时整条带的色调真的会变，
+   而不是像早先那样只换一条细线的颜色 */
 .hero-photo {
   position: absolute;
-  inset: 0;
-  background-position: center;
+  inset: 0 0 auto;
+  height: 100%;
+  pointer-events: none;
+  background-image:
+    /* 深色下压暗一层 */
+    linear-gradient(var(--photo-dim), var(--photo-dim)),
+    /* 双色调：浓度在各引擎的 --photo-tint 里（同一浓度下暖色比冷色显眼得多） */
+    linear-gradient(var(--photo-tint), var(--photo-tint)),
+    url('/hero.webp');
+  background-blend-mode: normal, color, normal;
   background-size: cover;
+  background-position: center 42%;
   background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(180deg, #000 0 62%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0 62%, transparent 100%);
+  animation: hero-in 420ms ease-out backwards;
+}
+
+@keyframes hero-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 搜索框：高级感主要来自这四层阴影——一层内高光、一条接触阴影、两层扩散。
+   深色下再给表面补一点点自上而下的渐变，做出「一块玻璃浮起来」的厚度 */
+.search-surface {
+  background-color: var(--color-surface);
+  background-image: light-dark(
+    none,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0))
+  );
+  box-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06)),
+    0 1px 1.5px light-dark(rgba(16, 20, 30, 0.06), rgba(0, 0, 0, 0.3)),
+    0 8px 20px -8px light-dark(rgba(16, 20, 30, 0.14), rgba(0, 0, 0, 0.34)),
+    0 26px 50px -26px light-dark(rgba(16, 20, 30, 0.2), rgba(0, 0, 0, 0.44));
+  transition: box-shadow 180ms ease;
+}
+
+/* 聚焦：还是那 3px 强调色环，外面再补一圈跟着引擎色走的柔光，和头顶那团光呼应 */
+.search-surface:focus-within {
+  box-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.08)),
+    0 0 0 3px color-mix(in oklab, var(--color-accent) 18%, transparent),
+    0 10px 24px -10px light-dark(rgba(16, 20, 30, 0.16), rgba(0, 0, 0, 0.36)),
+    0 30px 60px -28px color-mix(in oklab, var(--hero-color) 36%, transparent);
 }
 
 .time {

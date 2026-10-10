@@ -22,16 +22,6 @@ export interface NavSettings {
   /** 右侧信息栏：时间、农历、天气、假期 */
   showSidePanel: boolean
   historyEnabled: boolean
-  background: NavBackground
-}
-
-/**
- * preset 取值：'none'（纯色，默认）| 'image'（自己填的图片链接）。
- * 旧数据里的 'bing' 等历史值在读入时统一迁到 'none'。
- */
-export interface NavBackground {
-  preset: string
-  url: string
 }
 
 export interface NavData {

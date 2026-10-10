@@ -5,7 +5,6 @@ export const DEFAULT_SETTINGS: NavSettings = {
   theme: 'system',
   showSidePanel: true,
   historyEnabled: true,
-  background: { preset: 'none', url: '' },
 }
 
 /**
