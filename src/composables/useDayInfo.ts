@@ -29,7 +29,7 @@ const now = ref(new Date())
 let weatherAt = 0
 let timer: number | undefined
 
-const mergedTable = computed<HolidayTable>(() => ({
+export const mergedTable = computed<HolidayTable>(() => ({
   year: now.value.getFullYear(),
   days: Object.assign({}, ...years.value.map((table) => table.days)),
 }))

@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import './styles.css'
+import 'v-calendar/style.css'
 import App from './App.vue'
 import { initNav } from './composables/useNavData'
 import { initDayInfo } from './composables/useDayInfo'

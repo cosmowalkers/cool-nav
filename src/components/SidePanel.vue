@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import WeatherGlyph from './WeatherGlyph.vue'
 import TranslateCard from './TranslateCard.vue'
 import QrCard from './QrCard.vue'
+import MonthCalendar from './MonthCalendar.vue'
 import { useClock } from '../composables/useClock'
 import {
   geoBusy,
@@ -14,7 +15,7 @@ import {
 import { notes } from '../composables/useNotes'
 import { notesOpen } from '../composables/useUiState'
 
-const { time, date } = useClock()
+const { time } = useClock()
 
 const status = computed(() => today.value.status)
 
@@ -46,12 +47,6 @@ const festival = computed(() =>
   <aside class="flex flex-col gap-3">
     <section class="rise rounded-lg bg-surface px-4 py-4 text-center">
       <div class="time text-[32px] leading-none font-[300] tabular-nums">{{ time }}</div>
-      <div class="mt-2 flex items-center justify-center gap-2 text-[13px] text-dim">
-        <span>{{ date }}</span>
-      </div>
-      <div class="mt-1 text-[12px] text-faint">
-        农历{{ today.lunar.month }}{{ today.lunar.day }} · {{ today.lunar.yearName }}{{ today.lunar.zodiac }}年
-      </div>
       <div v-if="festival" class="mt-1 text-[13px] text-accent">{{ festival }}</div>
 
       <div
@@ -72,6 +67,8 @@ const festival = computed(() =>
         <span>{{ holidayText }}</span>
       </div>
     </section>
+
+    <MonthCalendar />
 
     <section v-if="weather" class="rise rounded-lg bg-surface px-4 py-3.5">
       <div class="flex items-center gap-2 text-[14px]">
